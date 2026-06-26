@@ -13,7 +13,7 @@ class ScaraPRR(DHRobot):
         links = [
             PrismaticMDH(theta=0, a=0, alpha=0, qlim=[0.0, 0.4]),
             RevoluteMDH(d=0, a=0, alpha=0, qlim=[-np.pi / 6, np.pi / 6]),
-            RevoluteMDH(d=0, a=L2, alpha=0, qlim=[-np.pi / 4, np.pi / 4]),
+            RevoluteMDH(d=0, a=L2, alpha=0, offset=np.pi / 4, qlim=[-np.pi / 4, np.pi / 4]),
         ]
 
         super().__init__(links, name="SCARA_PRR")
