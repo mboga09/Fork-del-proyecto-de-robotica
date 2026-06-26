@@ -13,6 +13,7 @@ from hmi.widgets.homing_panel import HomingPanel
 from hmi.widgets.operation_panel import OperationPanel
 from hmi.widgets.well_selector import WellSelector
 from hmi.widgets.status_panel import StatusPanel
+from hmi.widgets.manual_z_panel import ManualZPanel
 
 from hmi.controllers.robot_process_controller import RobotProcessController
 
@@ -22,7 +23,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Robotic Pipetting HMI")
-        self.setMinimumSize(1000, 650)
+        self.setMinimumSize(1100, 700)
 
         serial_config_file = load_yaml_config("serial_config.yaml")
         serial_config = serial_config_file.get("serial", {})
@@ -32,6 +33,7 @@ class MainWindow(QMainWindow):
 
         self.connection_panel = ConnectionPanel(serial_config=serial_config)
         self.homing_panel = HomingPanel()
+        self.manual_z_panel = ManualZPanel()
         self.operation_panel = OperationPanel()
         self.well_selector = WellSelector(plate_config=plate_config)
         self.status_panel = StatusPanel()
@@ -51,6 +53,7 @@ class MainWindow(QMainWindow):
         top_layout = QHBoxLayout()
         top_layout.addWidget(self.connection_panel)
         top_layout.addWidget(self.homing_panel)
+        top_layout.addWidget(self.manual_z_panel)
 
         middle_layout = QHBoxLayout()
         middle_layout.addWidget(self.operation_panel)
@@ -71,6 +74,8 @@ class MainWindow(QMainWindow):
         self.homing_panel.home_requested.connect(self.robot_controller.home)
         self.homing_panel.stop_requested.connect(self.robot_controller.stop)
         self.homing_panel.estop_requested.connect(self.robot_controller.estop)
+
+        self.manual_z_panel.z_jog_requested.connect(self.robot_controller.manual_z_jog)
 
         self.operation_panel.start_requested.connect(self._on_start_requested)
         self.well_selector.well_selection_changed.connect(self._on_well_selection_changed)
@@ -135,3 +140,4 @@ class MainWindow(QMainWindow):
     def _on_running_changed(self, running: bool) -> None:
         self.homing_panel.state_label.setText("State: Running" if running else "State: Idle")
         self.operation_panel.start_button.setEnabled(not running)
+        self.manual_z_panel.set_enabled(not running)
