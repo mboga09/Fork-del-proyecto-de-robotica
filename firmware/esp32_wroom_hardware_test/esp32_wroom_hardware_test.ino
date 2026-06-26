@@ -11,6 +11,7 @@
 //   - Mantener el eje Z en modo seguro: por defecto no se mueve.
 //   - Mover q2/q3 lento para verificar offsets y sentido.
 //   - Mover q1 solo con tiempos cortos si se solicita explicitamente.
+//   - Probar la herramienta como servo 180 deg en D22.
 //   - Usar dos tareas FreeRTOS fijadas a core:
 //       Core 0: SerialTask, parser JSON, logging.
 //       Core 1: MotionTask, PWM y estado del controlador.
@@ -22,7 +23,6 @@
 
 static const uint32_t BAUD_RATE = 115200;
 
-// PWM 50 Hz para servos.
 static const uint32_t SERVO_FREQ_HZ = 50;
 static const uint8_t SERVO_RES_BITS = 16;
 static const uint32_t SERVO_PERIOD_US = 20000;
@@ -31,22 +31,30 @@ static const uint32_t SERVO_DUTY_MAX = (1UL << SERVO_RES_BITS) - 1;
 static const uint8_t CH_Q1 = 0;
 static const uint8_t CH_Q2 = 1;
 static const uint8_t CH_Q3 = 2;
+static const uint8_t CH_TOOL = 3;
 
-// Ajustes iniciales seguros. Modificables en runtime con CONFIG.
 static volatile float q2TrimDeg = 0.0f;
 static volatile float q3TrimDeg = 0.0f;
+static volatile float toolTrimDeg = 0.0f;
 static volatile int q1StopUs = 1500;
 static volatile int q1ForwardUs = 1700;
 static volatile int q1ReverseUs = 1300;
 
-// Limites de seguridad del test.
 static const float SERVO_MIN_DEG = 0.0f;
 static const float SERVO_MAX_DEG = 180.0f;
 static const float MAX_Z_TEST_TIME_S = 2.0f;
 
-// Movimiento rotativo lento.
 static const float ROTARY_STEP_DEG = 0.5f;
+static const float TOOL_STEP_DEG = 2.0f;
 static const uint32_t MOTION_PERIOD_MS = 25;
+
+// Tool servo convention:
+//   TOOL_HOME      -> 90 deg
+//   TOOL_ASPIRATE  -> 180 deg   equivalente al sentido +180 mecanico
+//   TOOL_DISPENSE  -> 0 deg     equivalente al sentido -180 mecanico
+static const float TOOL_HOME_DEG = 90.0f;
+static const float TOOL_ASPIRATE_DEG = 180.0f;
+static const float TOOL_DISPENSE_DEG = 0.0f;
 
 // GPIO34 requiere resistencia externa. Ajustar si el switch es activo alto.
 static const int ESTOP_ACTIVE_LEVEL = LOW;
@@ -58,6 +66,7 @@ static volatile bool estopRequested = false;
 
 static float currentServo2Deg = 45.0f;
 static float currentServo3Deg = 90.0f;
+static float currentToolDeg = TOOL_HOME_DEG;
 
 struct RobotCommand {
   char cmd[24];
@@ -66,8 +75,10 @@ struct RobotCommand {
   float zTimeS;
   float s2Deg;
   float s3Deg;
+  float toolDeg;
   float q2Trim;
   float q3Trim;
+  float toolTrim;
   int q1Stop;
   int q1Forward;
   int q1Reverse;
@@ -80,15 +91,10 @@ struct LogLine {
   char line[384];
 };
 
-// ---------------------------------------------------------
-// Logging helpers
-// ---------------------------------------------------------
-
 void queueRawJson(const char* json) {
   if (logQueue == nullptr) {
     return;
   }
-
   LogLine msg;
   strncpy(msg.line, json, sizeof(msg.line) - 1);
   msg.line[sizeof(msg.line) - 1] = '\0';
@@ -103,7 +109,6 @@ void queueStatus(const char* status, const char* state, const char* message) {
   doc["armed"] = robotArmed;
   doc["busy"] = motionBusy;
   doc["message"] = message;
-
   char out[384];
   serializeJson(doc, out, sizeof(out));
   queueRawJson(out);
@@ -146,10 +151,6 @@ void sendDebugRawNow(const String& line) {
   doc["message"] = line;
   sendJsonNow(doc);
 }
-
-// ---------------------------------------------------------
-// PWM helpers
-// ---------------------------------------------------------
 
 uint32_t usToDuty(int pulseUs) {
   pulseUs = constrain(pulseUs, 500, 2500);
@@ -198,12 +199,8 @@ void applySafeOutputs() {
   stopQ1();
   writeServoAngle(CH_Q2, currentServo2Deg);
   writeServoAngle(CH_Q3, currentServo3Deg);
-  digitalWrite(PIN_TOOL_SUCTION, LOW);
+  writeServoAngle(CH_TOOL, currentToolDeg);
 }
-
-// ---------------------------------------------------------
-// Motion execution
-// ---------------------------------------------------------
 
 float stepTowards(float current, float target, float step) {
   if (fabs(target - current) <= step) {
@@ -222,9 +219,10 @@ void publishPosition(const char* name) {
   doc["name"] = name;
   doc["s2_deg"] = currentServo2Deg;
   doc["s3_deg"] = currentServo3Deg;
+  doc["tool_deg"] = currentToolDeg;
   doc["q2_trim_deg"] = q2TrimDeg;
   doc["q3_trim_deg"] = q3TrimDeg;
-
+  doc["tool_trim_deg"] = toolTrimDeg;
   char out[384];
   serializeJson(doc, out, sizeof(out));
   queueRawJson(out);
@@ -238,12 +236,27 @@ void enterEstop() {
   queueStatus("ESTOPPED", "ESTOPPED", "Q1 emergency limit active; outputs set safe");
 }
 
+bool validateServoTarget(float target, const char* label) {
+  if (target < SERVO_MIN_DEG || target > SERVO_MAX_DEG) {
+    StaticJsonDocument<384> doc;
+    doc["type"] = "status";
+    doc["status"] = "ERROR";
+    doc["state"] = "IDLE";
+    doc["message"] = label;
+    doc["target_deg"] = target;
+    char out[384];
+    serializeJson(doc, out, sizeof(out));
+    queueRawJson(out);
+    return false;
+  }
+  return true;
+}
+
 void executeMoveAct(const RobotCommand& command) {
   if (!robotArmed) {
     queueStatus("ERROR", "IDLE", "MOVE_ACT rejected: ARM_TEST or HOME required");
     return;
   }
-
   if (estopIsActive() || estopRequested) {
     enterEstop();
     return;
@@ -251,13 +264,10 @@ void executeMoveAct(const RobotCommand& command) {
 
   float targetS2 = command.s2Deg + q2TrimDeg;
   float targetS3 = command.s3Deg + q3TrimDeg;
-
-  if (targetS2 < SERVO_MIN_DEG || targetS2 > SERVO_MAX_DEG ||
-      targetS3 < SERVO_MIN_DEG || targetS3 > SERVO_MAX_DEG) {
-    queueStatus("ERROR", "IDLE", "MOVE_ACT rejected: servo target plus trim out of range");
+  if (!validateServoTarget(targetS2, "MOVE_ACT rejected: servo2 target plus trim out of range") ||
+      !validateServoTarget(targetS3, "MOVE_ACT rejected: servo3 target plus trim out of range")) {
     return;
   }
-
   if (command.zDir < -1 || command.zDir > 1 || command.zTimeS < 0.0f || command.zTimeS > MAX_Z_TEST_TIME_S) {
     queueStatus("ERROR", "IDLE", "MOVE_ACT rejected: unsafe Z request for hardware test");
     return;
@@ -270,7 +280,6 @@ void executeMoveAct(const RobotCommand& command) {
   const uint32_t startedMs = millis();
   const uint32_t zDurationMs = (uint32_t)(command.zTimeS * 1000.0f);
   bool zActive = (command.zDir != 0 && zDurationMs > 0);
-
   if (zActive) {
     setQ1Direction(command.zDir);
   } else {
@@ -285,7 +294,6 @@ void executeMoveAct(const RobotCommand& command) {
       queueStatus(estopRequested ? "ESTOPPED" : "STOPPED", estopRequested ? "ESTOPPED" : "STOPPED", "Motion interrupted");
       return;
     }
-
     if (estopIsActive()) {
       estopRequested = true;
       enterEstop();
@@ -294,7 +302,6 @@ void executeMoveAct(const RobotCommand& command) {
 
     currentServo2Deg = stepTowards(currentServo2Deg, targetS2, ROTARY_STEP_DEG);
     currentServo3Deg = stepTowards(currentServo3Deg, targetS3, ROTARY_STEP_DEG);
-
     writeServoAngle(CH_Q2, currentServo2Deg);
     writeServoAngle(CH_Q3, currentServo3Deg);
 
@@ -307,7 +314,6 @@ void executeMoveAct(const RobotCommand& command) {
     if (rotDone && !zActive) {
       break;
     }
-
     vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(MOTION_PERIOD_MS));
   }
 
@@ -317,24 +323,56 @@ void executeMoveAct(const RobotCommand& command) {
   queueStatus("IDLE", "IDLE", "Motion completed");
 }
 
-void executeToolPulse(const char* name) {
+void executeToolMove(const char* name, float targetDeg) {
   if (!robotArmed) {
     queueStatus("ERROR", "IDLE", "Tool rejected: ARM_TEST or HOME required");
     return;
   }
+  if (estopIsActive() || estopRequested) {
+    enterEstop();
+    return;
+  }
+
+  float targetTool = targetDeg + toolTrimDeg;
+  if (!validateServoTarget(targetTool, "Tool target plus trim out of range")) {
+    return;
+  }
 
   motionBusy = true;
+  stopRequested = false;
   queueStatus("MOVING", "MOVING", name);
-  digitalWrite(PIN_TOOL_SUCTION, HIGH);
-  vTaskDelay(pdMS_TO_TICKS(300));
-  digitalWrite(PIN_TOOL_SUCTION, LOW);
+
+  TickType_t lastWake = xTaskGetTickCount();
+  while (true) {
+    if (stopRequested) {
+      motionBusy = false;
+      queueStatus(estopRequested ? "ESTOPPED" : "STOPPED", estopRequested ? "ESTOPPED" : "STOPPED", "Tool interrupted");
+      return;
+    }
+    if (estopIsActive()) {
+      estopRequested = true;
+      enterEstop();
+      return;
+    }
+
+    currentToolDeg = stepTowards(currentToolDeg, targetTool, TOOL_STEP_DEG);
+    writeServoAngle(CH_TOOL, currentToolDeg);
+
+    if (fabs(currentToolDeg - targetTool) < 0.01f) {
+      break;
+    }
+    vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(MOTION_PERIOD_MS));
+  }
+
   motionBusy = false;
-  queueStatus("IDLE", "IDLE", "Tool pulse completed");
+  publishPosition(name);
+  queueStatus("IDLE", "IDLE", "Tool servo movement completed");
 }
 
 void applyConfig(const RobotCommand& command) {
   q2TrimDeg = command.q2Trim;
   q3TrimDeg = command.q3Trim;
+  toolTrimDeg = command.toolTrim;
   q1StopUs = command.q1Stop;
   q1ForwardUs = command.q1Forward;
   q1ReverseUs = command.q1Reverse;
@@ -344,7 +382,6 @@ void applyConfig(const RobotCommand& command) {
 
 void motionTask(void* parameter) {
   RobotCommand command;
-
   for (;;) {
     if (estopIsActive() && !estopRequested) {
       estopRequested = true;
@@ -363,8 +400,14 @@ void motionTask(void* parameter) {
         queueStatus("HOMED", "IDLE", "Hardware test armed without Z homing motion");
       } else if (strcmp(command.cmd, "MOVE_ACT") == 0) {
         executeMoveAct(command);
-      } else if (strcmp(command.cmd, "TOOL_ASPIRATE") == 0 || strcmp(command.cmd, "TOOL_DISPENSE") == 0) {
-        executeToolPulse(command.cmd);
+      } else if (strcmp(command.cmd, "TOOL_ASPIRATE") == 0) {
+        executeToolMove("TOOL_ASPIRATE", TOOL_ASPIRATE_DEG);
+      } else if (strcmp(command.cmd, "TOOL_DISPENSE") == 0) {
+        executeToolMove("TOOL_DISPENSE", TOOL_DISPENSE_DEG);
+      } else if (strcmp(command.cmd, "TOOL_HOME") == 0) {
+        executeToolMove("TOOL_HOME", TOOL_HOME_DEG);
+      } else if (strcmp(command.cmd, "TOOL_MOVE") == 0) {
+        executeToolMove(command.name, command.toolDeg);
       } else if (strcmp(command.cmd, "CONFIG") == 0) {
         applyConfig(command);
       } else if (strcmp(command.cmd, "STOP") == 0) {
@@ -375,14 +418,12 @@ void motionTask(void* parameter) {
       } else if (strcmp(command.cmd, "ESTOP") == 0) {
         estopRequested = true;
         enterEstop();
+      } else {
+        queueStatus("ERROR", "IDLE", "Unknown command received by MotionTask");
       }
     }
   }
 }
-
-// ---------------------------------------------------------
-// Serial parsing
-// ---------------------------------------------------------
 
 bool queueCommand(const RobotCommand& command) {
   return xQueueSend(commandQueue, &command, pdMS_TO_TICKS(20)) == pdTRUE;
@@ -402,7 +443,6 @@ void handleLine(String line) {
   if (line.length() == 0) {
     return;
   }
-
   sendDebugRawNow(line);
 
   StaticJsonDocument<512> doc;
@@ -422,9 +462,10 @@ void handleLine(String line) {
   command.zTimeS = doc["z_time_s"] | 0.0f;
   command.s2Deg = doc["s2_deg"] | currentServo2Deg;
   command.s3Deg = doc["s3_deg"] | currentServo3Deg;
-
+  command.toolDeg = doc["tool_deg"] | currentToolDeg;
   command.q2Trim = doc["q2_trim_deg"] | q2TrimDeg;
   command.q3Trim = doc["q3_trim_deg"] | q3TrimDeg;
+  command.toolTrim = doc["tool_trim_deg"] | toolTrimDeg;
   command.q1Stop = doc["q1_stop_us"] | q1StopUs;
   command.q1Forward = doc["q1_forward_us"] | q1ForwardUs;
   command.q1Reverse = doc["q1_reverse_us"] | q1ReverseUs;
@@ -441,12 +482,17 @@ void handleLine(String line) {
       return;
     }
   }
+  if (strcmp(command.cmd, "TOOL_MOVE") == 0) {
+    if (command.toolDeg < SERVO_MIN_DEG || command.toolDeg > SERVO_MAX_DEG) {
+      sendErrorNow(command.cmd, "tool_deg out of range before trim");
+      return;
+    }
+  }
 
   if (!queueCommand(command)) {
     sendErrorNow(command.cmd, "Command queue full");
     return;
   }
-
   sendAckNow(command.cmd, "Command queued");
 }
 
@@ -460,7 +506,6 @@ void flushLogs() {
 void serialTask(void* parameter) {
   String line;
   line.reserve(512);
-
   for (;;) {
     while (Serial.available()) {
       char c = (char)Serial.read();
@@ -475,32 +520,27 @@ void serialTask(void* parameter) {
         }
       }
     }
-
     flushLogs();
     vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
-
-// ---------------------------------------------------------
-// Arduino setup / loop
-// ---------------------------------------------------------
 
 void setup() {
   Serial.begin(BAUD_RATE);
   Serial.setTimeout(10);
   delay(500);
 
-  pinMode(PIN_TOOL_SUCTION, OUTPUT);
-  digitalWrite(PIN_TOOL_SUCTION, LOW);
   pinMode(PIN_Q1_ESTOP_LIMIT, INPUT);
 
   ledcSetup(CH_Q1, SERVO_FREQ_HZ, SERVO_RES_BITS);
   ledcSetup(CH_Q2, SERVO_FREQ_HZ, SERVO_RES_BITS);
   ledcSetup(CH_Q3, SERVO_FREQ_HZ, SERVO_RES_BITS);
+  ledcSetup(CH_TOOL, SERVO_FREQ_HZ, SERVO_RES_BITS);
 
   ledcAttachPin(PIN_Q1_Z_SCREW, CH_Q1);
   ledcAttachPin(PIN_Q2_ARM_1, CH_Q2);
   ledcAttachPin(PIN_Q3_ARM_2, CH_Q3);
+  ledcAttachPin(PIN_TOOL_SERVO, CH_TOOL);
 
   applySafeOutputs();
 
