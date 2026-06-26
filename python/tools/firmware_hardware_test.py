@@ -17,7 +17,7 @@ Q2_MIN_DEG = -30.0
 Q2_MAX_DEG = 30.0
 Q3_MIN_DEG = -45.0
 Q3_MAX_DEG = 45.0
-TOOL_HOME_DEG = 90.0
+TOOL_HOME_DEG = 0.0
 TOOL_ASPIRATE_DEG = 180.0
 TOOL_DISPENSE_DEG = 0.0
 
@@ -104,10 +104,10 @@ def build_sequence(config: dict[str, Any], include_tool: bool, jog_z: bool) -> l
     sequence.append(q_entry_to_move("SAFE_END", q_safe))
 
     if include_tool:
-        sequence.append(tool_move_command("TOOL_HOME_START", TOOL_HOME_DEG))
-        sequence.append({"cmd": "TOOL_ASPIRATE", "name": "TOOL_ASPIRATE_180"})
-        sequence.append({"cmd": "TOOL_DISPENSE", "name": "TOOL_DISPENSE_0"})
-        sequence.append({"cmd": "TOOL_HOME", "name": "TOOL_HOME_END"})
+        sequence.append(tool_move_command("TOOL_READY_0", TOOL_HOME_DEG))
+        sequence.append({"cmd": "TOOL_ASPIRATE", "name": "TOOL_ASPIRATE_0_TO_180"})
+        sequence.append({"cmd": "TOOL_DISPENSE", "name": "TOOL_DISPENSE_180_TO_0"})
+        sequence.append(tool_move_command("TOOL_END_0", TOOL_DISPENSE_DEG))
 
     return sequence
 
@@ -188,7 +188,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=DEFAULT_WORKSPACE_CONFIG)
     parser.add_argument("--timeout", type=float, default=20.0)
     parser.add_argument("--dry-run", action="store_true", help="Print commands without opening serial")
-    parser.add_argument("--include-tool", action="store_true", help="Move tool servo to home, aspirate, dispense, home")
+    parser.add_argument("--include-tool", action="store_true", help="Run calibrated tool sweep: 0->180 aspirate, 180->0 dispense")
     parser.add_argument("--jog-z", action="store_true", help="Run two very short q1 jogs of 0.25 s each")
     args = parser.parse_args()
 
