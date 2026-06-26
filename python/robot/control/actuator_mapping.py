@@ -36,10 +36,11 @@ class ActuatorMapper:
         z_max_m: Optional[float] = 0.4,
 
         # J2:
-        # Se mantiene el offset mecanico usado en las pruebas previas.
+        # La prueba fisica mostro que el eje Y estaba espejado.
+        # Se corrige invirtiendo la direccion del actuador q2, sin mover el layout.
         q2_servo_at_zero_deg: float = 45.0,
         q2_ratio: float = 1.0,
-        q2_direction: float = 1.0,
+        q2_direction: float = -1.0,
 
         # J3:
         # Servo 180 deg con relacion 1:1.
