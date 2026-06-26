@@ -1,5 +1,7 @@
 import numpy as np
 
+from robot.debug.plot_diagnostics import generate_transfer_debug_plots
+
 
 class LiquidTransferTask:
     """
@@ -21,18 +23,31 @@ class LiquidTransferTask:
         motion_sender,
         layout,
         status_callback=None,
+        generate_debug_plots: bool = True,
     ):
         self.planner = planner
         self.executor = executor
         self.motion_sender = motion_sender
         self.layout = layout
         self.status_callback = status_callback
+        self.generate_debug_plots = generate_debug_plots
 
     def run_wells(self, wells: list[str]) -> None:
         if not wells:
             raise ValueError("No hay wells seleccionados.")
 
         self._emit(f"Iniciando transferencia a wells: {wells}")
+
+        if self.generate_debug_plots:
+            self._emit("Generando plots de diagnóstico de modelo y trayectoria.")
+            generate_transfer_debug_plots(
+                robot=self.executor.robot,
+                planner=self.planner,
+                layout=self.layout,
+                q_initial=self.executor.current_q.copy(),
+                wells=wells,
+                status_callback=self._emit,
+            )
 
         self._ensure_safe_position()
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Iterable
 
 from control.serial_protocol import (
     make_home_command,
@@ -14,52 +14,68 @@ from control.serial_protocol import (
 
 class JsonMotionSender:
     """
-    Adapta los comandos generados por MotionExecutor al protocolo JSON
-    existente del proyecto.
+    Adapta los comandos generados por MotionExecutor al protocolo JSON.
 
-    Recibe ActuatorTarget y lo convierte a:
-
-        {
-            "cmd": "MOVE_ACT",
-            "z_dir": ...,
-            "z_time_s": ...,
-            "s2_deg": ...,
-            "s3_deg": ...
-        }
-
-    No calcula cinemática.
-    No genera trayectorias.
-    No conoce la HMI.
-
-    Solo convierte comandos de movimiento a JSON y los envía usando
-    SerialController.send_command(...).
+    En modo diagnóstico para ESP32 WROOM, cada comando de movimiento se envía
+    y luego se espera explícitamente a que el firmware responda ACK y un estado
+    terminal. Esto evita que Python sobreescriba acciones o sature el firmware
+    enviando el siguiente punto antes de que el ESP32 reporte que terminó.
     """
 
-    def __init__(self, serial_controller: Any):
-        """
-        Parameters
-        ----------
-        serial_controller:
-            Instancia de control.serial_controller.SerialController,
-            o cualquier objeto que tenga un método send_command(dict).
-        """
-
+    def __init__(
+        self,
+        serial_controller: Any,
+        ack_timeout_s: float = 5.0,
+        motion_timeout_s: float = 30.0,
+    ):
         if not hasattr(serial_controller, "send_command"):
             raise TypeError(
                 "serial_controller debe tener un método send_command(command: dict)."
             )
 
         self.serial = serial_controller
+        self.ack_timeout_s = ack_timeout_s
+        self.motion_timeout_s = motion_timeout_s
+
+    # ---------------------------------------------------------
+    # Helpers de envío con espera
+    # ---------------------------------------------------------
+
+    def _send_and_wait(
+        self,
+        command: dict,
+        terminal_statuses: Iterable[str],
+        timeout_s: float | None = None,
+    ) -> dict:
+        cmd = str(command.get("cmd", ""))
+        timeout = self.motion_timeout_s if timeout_s is None else timeout_s
+
+        self.serial.send_command(command)
+
+        ack = self.serial.wait_for_ack(cmd, timeout_s=self.ack_timeout_s)
+        if ack is None:
+            raise TimeoutError(f"Timeout esperando ACK para {cmd}.")
+
+        status = self.serial.wait_for_status(
+            set(terminal_statuses),
+            timeout_s=timeout,
+        )
+        if status is None:
+            raise TimeoutError(
+                f"Timeout esperando estado terminal {list(terminal_statuses)} para {cmd}."
+            )
+
+        status_name = status.get("status")
+        if cmd not in ("STOP", "ESTOP") and status_name in ("STOPPED", "ESTOPPED"):
+            raise RuntimeError(f"{cmd} interrumpido por estado {status_name}.")
+
+        return status
 
     # ---------------------------------------------------------
     # Movimiento de actuadores
     # ---------------------------------------------------------
-    
-    def send_actuator_target(self, target) -> None:
-        """
-        Envía un ActuatorTarget como comando JSON MOVE_ACT.
-        """
 
+    def send_actuator_target(self, target) -> None:
         command = make_move_act_command(
             z_dir=target.z_direction,
             z_time_s=target.z_duration_s,
@@ -67,7 +83,8 @@ class JsonMotionSender:
             s3_deg=target.servo3_deg,
         )
 
-        self.serial.send_command(command)
+        print("TX MOVE_ACT TARGET:", command, flush=True)
+        self._send_and_wait(command, terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"))
 
     def move_act(
         self,
@@ -87,40 +104,57 @@ class JsonMotionSender:
             s2_deg=s2_deg,
             s3_deg=s3_deg,
         )
-
-        self.serial.send_command(command)
+        self._send_and_wait(command, terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"))
 
     # ---------------------------------------------------------
     # Comandos generales
     # ---------------------------------------------------------
 
     def home(self) -> None:
-        self.serial.send_command(make_home_command())
+        self._send_and_wait(
+            make_home_command(),
+            terminal_statuses=("HOMED",),
+            timeout_s=10.0,
+        )
 
-    def stop(self) -> None:
-        self.serial.send_command(make_stop_command())
+    def stop(self, wait: bool = True) -> None:
+        command = make_stop_command()
 
-    def estop(self) -> None:
-        self.serial.send_command(make_estop_command())
+        if not wait:
+            self.serial.send_command(command)
+            return
+
+        self._send_and_wait(
+            command,
+            terminal_statuses=("STOPPED",),
+            timeout_s=5.0,
+        )
+
+    def estop(self, wait: bool = True) -> None:
+        command = make_estop_command()
+
+        if not wait:
+            self.serial.send_command(command)
+            return
+
+        self._send_and_wait(
+            command,
+            terminal_statuses=("ESTOPPED",),
+            timeout_s=5.0,
+        )
 
     # ---------------------------------------------------------
     # Herramienta
     # ---------------------------------------------------------
 
     def aspirate(self) -> None:
-        self.serial.send_command(make_tool_aspirate_command())
+        self._send_and_wait(
+            make_tool_aspirate_command(),
+            terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"),
+        )
 
     def dispense(self) -> None:
-        self.serial.send_command(make_tool_dispense_command())
-
-    def send_actuator_target(self, target) -> None:
-        command = make_move_act_command(
-        z_dir=target.z_direction,
-        z_time_s=target.z_duration_s,
-        s2_deg=target.servo2_deg,
-        s3_deg=target.servo3_deg,
-    )
-
-        print("TX MOVE_ACT:", command, flush=True)
-
-        self.serial.send_command(command)
+        self._send_and_wait(
+            make_tool_dispense_command(),
+            terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"),
+        )
