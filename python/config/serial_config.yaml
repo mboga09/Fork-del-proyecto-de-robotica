@@ -1,0 +1,27 @@
+serial:
+  default_port: "COM3"
+  default_baudrate: 115200
+  timeout_s: 1.0
+  line_ending: "\n"
+
+  available_ports:
+    - "COM3"
+    - "COM4"
+    - "COM5"
+    - "COM9"
+    - "/dev/ttyUSB0"
+    - "/dev/ttyACM0"
+
+  standard_baudrates:
+    - 9600
+    - 19200
+    - 38400
+    - 57600
+    - 115200
+    - 230400
+    - 460800
+    - 921600
+
+  serial:
+    port: "COM4"
+    baud_rate: 115200

@@ -1,0 +1,33 @@
+QMainWindow {
+    background-color: #f4f4f4;
+}
+
+QGroupBox {
+    font-weight: bold;
+    border: 1px solid #b0b0b0;
+    border-radius: 6px;
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 4px 0 4px;
+}
+
+QPushButton {
+    padding: 8px;
+    border-radius: 4px;
+}
+
+QPushButton:checked {
+    background-color: #b8d8ff;
+}
+
+#titleLabel {
+    font-size: 24px;
+    font-weight: bold;
+    padding: 10px;
+}

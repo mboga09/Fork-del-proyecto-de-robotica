@@ -1,0 +1,38 @@
+plate:
+  name: "6_well_plate"
+  rows:
+    - "A"
+    - "B"
+  columns:
+    - 1
+    - 2
+    - 3
+
+  default_deposit_height_m: 0.022
+  default_approach_height_m: 0.060
+
+  wells:
+    A1:
+      x_m: 0.099203
+      y_m: 0.206997
+      z_m: 0.022
+    A2:
+      x_m: 0.138203
+      y_m: 0.206997
+      z_m: 0.022
+    A3:
+      x_m: 0.177203
+      y_m: 0.206997
+      z_m: 0.022
+    B1:
+      x_m: 0.099203
+      y_m: 0.167997
+      z_m: 0.022
+    B2:
+      x_m: 0.138203
+      y_m: 0.167997
+      z_m: 0.022
+    B3:
+      x_m: 0.177203
+      y_m: 0.167997
+      z_m: 0.022

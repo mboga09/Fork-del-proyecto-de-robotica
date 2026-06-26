@@ -1,0 +1,97 @@
+robot:
+  joint_steps: 5
+  linear_steps: 2
+
+  # El PathPlanner usa esta altura como offset relativo.
+  # Plate config:
+  #   deposit_height = 0.022 m
+  #   approach_height = 0.060 m
+  # Entonces:
+  #   approach_height_m = 0.060 - 0.022 = 0.038 m
+  approach_height_m: 0.038
+
+q_home:
+  d1: 0.000
+  theta2_deg: 0.0
+  theta3_deg: 0.0
+
+# TCP a z ≈ 0.060 m:
+# z_tcp = base_z + d1 - 0.024
+# 0.060 = 0.0025 + d1 - 0.024
+# d1 = 0.0815
+q_safe:
+  d1: 0.0815
+  theta2_deg: 0.0
+  theta3_deg: 0.0
+
+source:
+  pose:
+    x: 0.174
+    y: 0.207
+    z: 0.200
+
+  approach_q:
+    d1: 0.2595
+    theta2_deg: 24.291
+    theta3_deg: 17
+
+wells:
+  A1:
+    pose:
+      x: 0.099203
+      y: 0.206997
+      z: 0.022
+    approach_q:
+      d1: 0.0815
+      theta2_deg: 24.313
+      theta3_deg: 26.6
+
+  A2:
+    pose:
+      x: 0.138203
+      y: 0.206997
+      z: 0.022
+    approach_q:
+      d1: 0.0815
+      theta2_deg: 22.333
+      theta3_deg: 22.62
+
+  A3:
+    pose:
+      x: 0.177203
+      y: 0.206997
+      z: 0.022
+    approach_q:
+      d1: 0.0815
+      theta2_deg: 24.704
+      theta3_deg: 49.461
+
+  B1:
+    pose:
+      x: 0.099203
+      y: 0.167997
+      z: 0.022
+    approach_q:
+      d1: 0.0815
+      theta2_deg: 10.005
+      theta3_deg: 98.866
+
+  B2:
+    pose:
+      x: 0.138203
+      y: 0.167997
+      z: 0.022
+    approach_q:
+      d1: 0.0815
+      theta2_deg: 7.037
+      theta3_deg: 87.041
+
+  B3:
+    pose:
+      x: 0.177203
+      y: 0.167997
+      z: 0.022
+    approach_q:
+      d1: 0.0815
+      theta2_deg: 7.954
+      theta3_deg: 71.036
