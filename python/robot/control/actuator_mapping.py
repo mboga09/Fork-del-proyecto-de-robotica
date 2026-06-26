@@ -20,8 +20,8 @@ class ActuatorMapper:
     Mapper para:
 
     J1: MG996R continuo + tornillo 2 mm/rev
-    J2: MG996R 180°, relación 1:1
-    J3: MG996R 180°, relación 3:1
+    J2: MG996R 180 deg, con limite cinemático actual [-30 deg, 30 deg]
+    J3: MG996R 180 deg, relacion 1:1, con q3 cinemático [-45 deg, 45 deg]
     """
 
     def __init__(
@@ -36,19 +36,18 @@ class ActuatorMapper:
         z_max_m: Optional[float] = 0.4,
 
         # J2:
-        # q2 = -45° -> servo = 0°
-        # q2 =   0° -> servo = 45°
-        # q2 = 135° -> servo = 180°
+        # Se mantiene el offset mecanico usado en las pruebas previas.
         q2_servo_at_zero_deg: float = 45.0,
         q2_ratio: float = 1.0,
         q2_direction: float = 1.0,
 
         # J3:
-        # q3 = -30° -> servo = 0°
-        # q3 =   0° -> servo = 90°
-        # q3 =  30° -> servo = 180°
+        # Servo 180 deg con relacion 1:1.
+        # q3 = -45 deg -> servo = 45 deg
+        # q3 =   0 deg -> servo = 90 deg
+        # q3 =  45 deg -> servo = 135 deg
         q3_servo_at_zero_deg: float = 90.0,
-        q3_ratio: float = 3.0,
+        q3_ratio: float = 1.0,
         q3_direction: float = 1.0,
 
         servo_min_deg: float = 0.0,
