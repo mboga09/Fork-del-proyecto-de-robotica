@@ -46,7 +46,7 @@ class JsonMotionSender:
         command: dict,
         terminal_statuses: Iterable[str],
         timeout_s: float | None = None,
-    ) -> None:
+    ) -> dict:
         cmd = str(command.get("cmd", ""))
         timeout = self.motion_timeout_s if timeout_s is None else timeout_s
 
@@ -64,6 +64,12 @@ class JsonMotionSender:
             raise TimeoutError(
                 f"Timeout esperando estado terminal {list(terminal_statuses)} para {cmd}."
             )
+
+        status_name = status.get("status")
+        if cmd not in ("STOP", "ESTOP") and status_name in ("STOPPED", "ESTOPPED"):
+            raise RuntimeError(f"{cmd} interrumpido por estado {status_name}.")
+
+        return status
 
     # ---------------------------------------------------------
     # Movimiento de actuadores
