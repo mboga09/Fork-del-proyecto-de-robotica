@@ -15,12 +15,12 @@ q_home:
   theta2_deg: 0.0
   theta3_deg: 0.0
 
-# TCP a z ≈ 0.060 m:
+# TCP a z aprox. 0.120 m:
 # z_tcp = base_z + d1 - 0.024
-# 0.060 = 0.0025 + d1 - 0.024
-# d1 = 0.0815
+# 0.120 = 0.0025 + d1 - 0.024
+# d1 = 0.1415
 q_safe:
-  d1: 0.0815
+  d1: 0.1415
   theta2_deg: 0.0
   theta3_deg: 0.0
 
