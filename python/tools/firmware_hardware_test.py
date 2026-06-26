@@ -17,6 +17,9 @@ Q2_MIN_DEG = -30.0
 Q2_MAX_DEG = 30.0
 Q3_MIN_DEG = -45.0
 Q3_MAX_DEG = 45.0
+TOOL_HOME_DEG = 90.0
+TOOL_ASPIRATE_DEG = 180.0
+TOOL_DISPENSE_DEG = 0.0
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_WORKSPACE_CONFIG = PROJECT_ROOT / "python" / "config" / "workspace_config.yaml"
@@ -50,6 +53,12 @@ def move_command(name: str, theta2_deg: float, theta3_deg: float, z_dir: int = 0
         "s2_deg": round(servo2, 3),
         "s3_deg": round(servo3, 3),
     }
+
+
+def tool_move_command(name: str, tool_deg: float) -> dict[str, Any]:
+    if not 0.0 <= tool_deg <= 180.0:
+        raise ValueError(f"tool_deg fuera de rango: {tool_deg:.3f}")
+    return {"cmd": "TOOL_MOVE", "name": name, "tool_deg": round(tool_deg, 3)}
 
 
 def q_entry_to_move(name: str, q_entry: dict[str, Any]) -> dict[str, Any]:
@@ -95,8 +104,10 @@ def build_sequence(config: dict[str, Any], include_tool: bool, jog_z: bool) -> l
     sequence.append(q_entry_to_move("SAFE_END", q_safe))
 
     if include_tool:
-        sequence.append({"cmd": "TOOL_ASPIRATE", "name": "TOOL_ASPIRATE_PULSE"})
-        sequence.append({"cmd": "TOOL_DISPENSE", "name": "TOOL_DISPENSE_PULSE"})
+        sequence.append(tool_move_command("TOOL_HOME_START", TOOL_HOME_DEG))
+        sequence.append({"cmd": "TOOL_ASPIRATE", "name": "TOOL_ASPIRATE_180"})
+        sequence.append({"cmd": "TOOL_DISPENSE", "name": "TOOL_DISPENSE_0"})
+        sequence.append({"cmd": "TOOL_HOME", "name": "TOOL_HOME_END"})
 
     return sequence
 
@@ -109,7 +120,7 @@ def terminal_statuses_for(command: dict[str, Any]) -> set[str]:
         return {"HOMED"}
     if cmd == "CONFIG":
         return {"CONFIG"}
-    if cmd in {"MOVE_ACT", "TOOL_ASPIRATE", "TOOL_DISPENSE"}:
+    if cmd in {"MOVE_ACT", "TOOL_ASPIRATE", "TOOL_DISPENSE", "TOOL_HOME", "TOOL_MOVE"}:
         return {"IDLE", "STOPPED", "ESTOPPED", "ERROR"}
     return {"IDLE", "STOPPED", "ESTOPPED", "ERROR"}
 
@@ -177,7 +188,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=DEFAULT_WORKSPACE_CONFIG)
     parser.add_argument("--timeout", type=float, default=20.0)
     parser.add_argument("--dry-run", action="store_true", help="Print commands without opening serial")
-    parser.add_argument("--include-tool", action="store_true", help="Pulse D22 after motion tests")
+    parser.add_argument("--include-tool", action="store_true", help="Move tool servo to home, aspirate, dispense, home")
     parser.add_argument("--jog-z", action="store_true", help="Run two very short q1 jogs of 0.25 s each")
     args = parser.parse_args()
 
