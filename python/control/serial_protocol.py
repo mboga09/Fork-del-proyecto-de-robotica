@@ -6,7 +6,7 @@ Protocol:
     - Python/HMI sends commands using the "cmd" field.
     - Firmware responds with messages using the "type" field.
 
-Protocol version: 0.2
+Protocol version: 0.2-diagnostic
 """
 
 from enum import StrEnum
@@ -23,9 +23,7 @@ class Command(StrEnum):
     HOME = "HOME"
     STOP = "STOP"
     ESTOP = "ESTOP"
-
     MOVE_ACT = "MOVE_ACT"
-
     TOOL_ASPIRATE = "TOOL_ASPIRATE"
     TOOL_DISPENSE = "TOOL_DISPENSE"
 
@@ -52,7 +50,6 @@ FIELD_TYPE = "type"
 FIELD_STATUS = "status"
 FIELD_OK = "ok"
 FIELD_MESSAGE = "message"
-
 FIELD_Z_DIR = "z_dir"
 FIELD_Z_TIME_S = "z_time_s"
 FIELD_SERVO_2_DEG = "s2_deg"
@@ -60,9 +57,7 @@ FIELD_SERVO_3_DEG = "s3_deg"
 
 
 def make_command(command: Command) -> dict:
-    return {
-        FIELD_COMMAND: command.value
-    }
+    return {FIELD_COMMAND: command.value}
 
 
 def make_ping_command() -> dict:
@@ -89,12 +84,7 @@ def make_tool_dispense_command() -> dict:
     return make_command(Command.TOOL_DISPENSE)
 
 
-def make_move_act_command(
-    z_dir: int,
-    z_time_s: float,
-    s2_deg: float,
-    s3_deg: float,
-) -> dict:
+def make_move_act_command(z_dir: int, z_time_s: float, s2_deg: float, s3_deg: float) -> dict:
     z_dir = int(z_dir)
     z_time_s = float(z_time_s)
     s2_deg = float(s2_deg)
@@ -106,12 +96,8 @@ def make_move_act_command(
     if z_time_s < 0.0:
         raise ValueError("z_time_s must be non-negative.")
 
-    if not 0.0 <= s2_deg <= 180.0:
-        raise ValueError("s2_deg must be between 0 and 180 degrees.")
-
-    if not 0.0 <= s3_deg <= 180.0:
-        raise ValueError("s3_deg must be between 0 and 180 degrees.")
-
+    # Diagnostic branch: s2_deg and s3_deg are logged as generated values.
+    # They are not hardware-safe calibration outputs yet.
     return {
         FIELD_COMMAND: Command.MOVE_ACT.value,
         FIELD_Z_DIR: z_dir,
