@@ -21,17 +21,31 @@ GPIO34 es solo entrada y no tiene pull-up/pull-down interno. El switch de emerge
 - Los jogs de q1 solo se ejecutan si se pasa `--jog-z`.
 - El firmware rechaza cualquier movimiento de q1 mayor a `2.0 s`.
 - q2 y q3 se mueven lento con pasos de `0.5 deg` cada `25 ms`.
-- La herramienta es un servo 180 deg en D22.
+- La herramienta es un servo 180 deg en D22/GPIO22.
 
-## Convención de herramienta
+## Convención calibrada de herramienta
 
-Como el servo solo acepta comandos absolutos de `0 deg` a `180 deg`, usamos esta convención para representar los sentidos mecanicos:
+La calibración validada con Arduino fue:
 
-| Acción | Servo absoluto | Sentido mecánico |
+```cpp
+for (int posicion = 0; posicion <= 180; posicion++) {
+  miServo.write(posicion);
+  delay(15);
+}
+
+for (int posicion = 180; posicion >= 0; posicion--) {
+  miServo.write(posicion);
+  delay(15);
+}
+```
+
+Entonces el firmware de test usa esta misma convención:
+
+| Acción | Barrido servo | Efecto |
 |---|---:|---:|
-| `TOOL_HOME` | 90 deg | centro |
-| `TOOL_ASPIRATE` | 180 deg | +180, succionar |
-| `TOOL_DISPENSE` | 0 deg | -180, vaciar |
+| `TOOL_HOME` | ir a 0 deg | posición inicial |
+| `TOOL_ASPIRATE` | 0 deg -> 180 deg | absorber/succionar |
+| `TOOL_DISPENSE` | 180 deg -> 0 deg | vaciar/dispensar |
 
 Tambien existe `TOOL_MOVE` para probar un angulo arbitrario:
 
@@ -78,8 +92,14 @@ Para probar q1 con dos jogs cortos de 0.25 s:
 python -m tools.firmware_hardware_test --port COM8 --jog-z
 ```
 
-Para incluir prueba de herramienta:
+Para incluir prueba de herramienta calibrada:
 
 ```powershell
 python -m tools.firmware_hardware_test --port COM8 --include-tool
+```
+
+Para ver y guardar la salida serial del test:
+
+```powershell
+python -m tools.firmware_hardware_test --port COM8 --include-tool | Tee-Object -FilePath hardware_test_log.txt
 ```
