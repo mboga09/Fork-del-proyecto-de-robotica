@@ -7,8 +7,9 @@ L1_M = 0.150
 L2_M = 0.150
 Q2_MIN_DEG = -30.0
 Q2_MAX_DEG = 30.0
-Q3_MIN_DEG = 0.0
-Q3_MAX_DEG = 90.0
+Q3_MIN_DEG = -45.0
+Q3_MAX_DEG = 45.0
+Q3_OFFSET_DEG = 45.0
 WELL_SPACING_M = 0.039
 
 WELL_LOCAL_XY = {
@@ -25,6 +26,7 @@ WELL_LOCAL_XY = {
 class JointSolution:
     q2_deg: float
     q3_deg: float
+    elbow_deg: float
     margin_deg: float
 
 
@@ -37,33 +39,39 @@ class RackCandidate:
 
 
 def reachable_radius_limits() -> tuple[float, float]:
-    q3_max = math.radians(max(abs(Q3_MIN_DEG), abs(Q3_MAX_DEG)))
-    r_min = math.sqrt(L1_M**2 + L2_M**2 + 2.0 * L1_M * L2_M * math.cos(q3_max))
-    r_max = L1_M + L2_M
-    return r_min, r_max
+    elbow_min = math.radians(Q3_MIN_DEG + Q3_OFFSET_DEG)
+    elbow_max = math.radians(Q3_MAX_DEG + Q3_OFFSET_DEG)
+    radii = []
+
+    for elbow in (elbow_min, elbow_max):
+        r = math.sqrt(L1_M**2 + L2_M**2 + 2.0 * L1_M * L2_M * math.cos(elbow))
+        radii.append(r)
+
+    return min(radii), max(radii)
 
 
 def ik_solutions(x_m: float, y_m: float) -> list[JointSolution]:
     r2 = x_m * x_m + y_m * y_m
-    cos_q3 = (r2 - L1_M**2 - L2_M**2) / (2.0 * L1_M * L2_M)
+    cos_elbow = (r2 - L1_M**2 - L2_M**2) / (2.0 * L1_M * L2_M)
 
-    if cos_q3 < -1.0 or cos_q3 > 1.0:
+    if cos_elbow < -1.0 or cos_elbow > 1.0:
         return []
 
-    cos_q3 = max(-1.0, min(1.0, cos_q3))
-    raw_q3 = math.acos(cos_q3)
-    candidates = [raw_q3, -raw_q3]
+    cos_elbow = max(-1.0, min(1.0, cos_elbow))
+    raw_elbow = math.acos(cos_elbow)
+    elbow_candidates = [raw_elbow, -raw_elbow]
 
     valid = []
-    for q3 in candidates:
+    for elbow in elbow_candidates:
         q2 = math.atan2(y_m, x_m) - math.atan2(
-            L2_M * math.sin(q3),
-            L1_M + L2_M * math.cos(q3),
+            L2_M * math.sin(elbow),
+            L1_M + L2_M * math.cos(elbow),
         )
         q2 = (q2 + math.pi) % (2.0 * math.pi) - math.pi
 
         q2_deg = math.degrees(q2)
-        q3_deg = math.degrees(q3)
+        elbow_deg = math.degrees(elbow)
+        q3_deg = elbow_deg - Q3_OFFSET_DEG
 
         margin = min(
             q2_deg - Q2_MIN_DEG,
@@ -73,7 +81,14 @@ def ik_solutions(x_m: float, y_m: float) -> list[JointSolution]:
         )
 
         if margin >= 0.0:
-            valid.append(JointSolution(q2_deg=q2_deg, q3_deg=q3_deg, margin_deg=margin))
+            valid.append(
+                JointSolution(
+                    q2_deg=q2_deg,
+                    q3_deg=q3_deg,
+                    elbow_deg=elbow_deg,
+                    margin_deg=margin,
+                )
+            )
 
     valid.sort(key=lambda sol: sol.margin_deg, reverse=True)
     return valid
@@ -112,10 +127,10 @@ def validate_rack(a2_x_m: float, a2_y_m: float, theta_deg: float) -> tuple[bool,
 
 
 def search_rack_pose(
-    x_min: float = 0.18,
-    x_max: float = 0.32,
-    y_min: float = -0.16,
-    y_max: float = 0.16,
+    x_min: float = 0.08,
+    x_max: float = 0.34,
+    y_min: float = -0.20,
+    y_max: float = 0.20,
     theta_min: float = 0.0,
     theta_max: float = 180.0,
     xy_step: float = 0.001,
@@ -166,6 +181,7 @@ def print_candidate(candidate: RackCandidate) -> None:
                 f"{well_id}: x={x:.6f}, y={y:.6f}, r={r:.6f}, "
                 f"q2={solution.q2_deg:.3f} deg, "
                 f"q3={solution.q3_deg:.3f} deg, "
+                f"elbow={solution.elbow_deg:.3f} deg, "
                 f"margin={solution.margin_deg:.3f} deg"
             )
 
