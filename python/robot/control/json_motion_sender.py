@@ -16,10 +16,10 @@ class JsonMotionSender:
     """
     Adapta los comandos generados por MotionExecutor al protocolo JSON.
 
-    En modo diagnóstico para ESP32 WROOM, cada comando se envía y luego se
-    espera explícitamente a que el firmware responda ACK y un estado terminal.
-    Esto evita que Python sobreescriba acciones o sature el firmware enviando
-    el siguiente punto antes de que el ESP32 reporte que terminó.
+    En modo diagnóstico para ESP32 WROOM, cada comando de movimiento se envía
+    y luego se espera explícitamente a que el firmware responda ACK y un estado
+    terminal. Esto evita que Python sobreescriba acciones o sature el firmware
+    enviando el siguiente punto antes de que el ESP32 reporte que terminó.
     """
 
     def __init__(
@@ -111,18 +111,28 @@ class JsonMotionSender:
             timeout_s=10.0,
         )
 
-    def stop(self) -> None:
-        # STOP debe tener prioridad. Se envía y se espera STOPPED si el firmware
-        # responde; si no hay respuesta, el caller verá el timeout.
+    def stop(self, wait: bool = True) -> None:
+        command = make_stop_command()
+
+        if not wait:
+            self.serial.send_command(command)
+            return
+
         self._send_and_wait(
-            make_stop_command(),
+            command,
             terminal_statuses=("STOPPED",),
             timeout_s=5.0,
         )
 
-    def estop(self) -> None:
+    def estop(self, wait: bool = True) -> None:
+        command = make_estop_command()
+
+        if not wait:
+            self.serial.send_command(command)
+            return
+
         self._send_and_wait(
-            make_estop_command(),
+            command,
             terminal_statuses=("ESTOPPED",),
             timeout_s=5.0,
         )
