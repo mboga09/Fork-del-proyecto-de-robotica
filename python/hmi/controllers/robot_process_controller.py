@@ -101,6 +101,9 @@ class RobotProcessController(QObject):
 
             self.executor.dry_run = False
             self.executor.command_sender = self.motion_sender.send_actuator_target
+            # En este diagnóstico el JsonMotionSender ya espera ACK + estado
+            # terminal del ESP32. No hacemos un segundo sleep en Python.
+            self.executor.wait_after_send = False
 
             self.connection_changed.emit(True)
             self.status_changed.emit(f"Conectado a {port} @ {baudrate}.")
@@ -115,6 +118,7 @@ class RobotProcessController(QObject):
         self.motion_sender = None
         self.executor.dry_run = True
         self.executor.command_sender = None
+        self.executor.wait_after_send = True
 
         self.connection_changed.emit(False)
         self.status_changed.emit("Desconectado.")
