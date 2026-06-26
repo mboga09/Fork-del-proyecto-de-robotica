@@ -1,5 +1,7 @@
 from PySide6.QtCore import QObject, Signal, QThread
 
+import numpy as np
+
 from control.serial_controller import SerialController
 from control.serial_protocol import get_message_text
 
@@ -48,7 +50,7 @@ class RobotProcessController(QObject):
 
         self.mapper = ActuatorMapper(
             z_pitch_m_per_rev=0.002,
-            z_speed_m_per_s=0.0015,
+            z_speed_m_per_s=0.0060,
             z_min_m=0.0,
             z_max_m=0.4,
         )
@@ -163,6 +165,39 @@ class RobotProcessController(QObject):
         self.running_changed.emit(False)
         self.status_changed.emit("ESTOP enviado.")
 
+    def manual_z_jog(self, direction: int, distance_mm: float) -> None:
+        if not self._require_connection():
+            return
+
+        if self.is_running:
+            self.status_changed.emit("No se puede hacer jog manual mientras corre una tarea.")
+            return
+
+        if not self.is_homed:
+            self.status_changed.emit("Error: debe hacer HOME antes de mover Z manualmente.")
+            return
+
+        if direction not in (-1, 1):
+            self.status_changed.emit(f"Dirección Z inválida: {direction}")
+            return
+
+        distance_m = float(distance_mm) / 1000.0
+        if distance_m <= 0.0:
+            self.status_changed.emit("La distancia de jog debe ser positiva.")
+            return
+
+        q_target = np.asarray(self.executor.current_q, dtype=float).copy()
+        q_target[0] += direction * distance_m
+
+        try:
+            self.status_changed.emit(
+                f"Jog Z {'subir' if direction > 0 else 'bajar'}: {distance_mm:.1f} mm"
+            )
+            self.executor._execute_joint_point(q_target, index=0)
+            self.status_changed.emit(f"Jog Z terminado. d1={q_target[0]:.4f} m")
+        except Exception as exc:
+            self.status_changed.emit(f"Error en jog Z: {exc}")
+
     # ---------------------------------------------------------
     # Transferencia
     # ---------------------------------------------------------
@@ -174,11 +209,9 @@ class RobotProcessController(QObject):
         if not self.is_homed:
             self.status_changed.emit("Error: debe hacer HOME antes de iniciar.")
             return
-
         if self.is_running:
             self.status_changed.emit("Ya hay una tarea corriendo.")
             return
-
         if not wells:
             self.status_changed.emit("Error: no hay wells seleccionados.")
             return
