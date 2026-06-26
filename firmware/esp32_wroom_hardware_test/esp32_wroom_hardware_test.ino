@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
-#include "../common/robot_pins.h"
+#include "robot_pins.h"
 
 // ---------------------------------------------------------
 // ESP32 WROOM hardware test firmware
