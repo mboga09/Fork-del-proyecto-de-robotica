@@ -12,6 +12,7 @@ import yaml
 
 BAUD_RATE = 115200
 SERVO2_AT_Q2_ZERO_DEG = 45.0
+SERVO2_DIRECTION = -1.0
 SERVO3_AT_Q3_ZERO_DEG = 90.0
 Q2_MIN_DEG = -30.0
 Q2_MAX_DEG = 30.0
@@ -31,7 +32,7 @@ def load_workspace_config(path: Path) -> dict[str, Any]:
 
 
 def servo_from_joint(theta2_deg: float, theta3_deg: float) -> tuple[float, float]:
-    servo2 = SERVO2_AT_Q2_ZERO_DEG + theta2_deg
+    servo2 = SERVO2_AT_Q2_ZERO_DEG + SERVO2_DIRECTION * theta2_deg
     servo3 = SERVO3_AT_Q3_ZERO_DEG + theta3_deg
 
     if not 0.0 <= servo2 <= 180.0:
