@@ -40,10 +40,9 @@ static volatile int q1StopUs = 1500;
 static volatile int q1ForwardUs = 1700;
 static volatile int q1ReverseUs = 1300;
 
-// GPIO34 no tiene pull-up/pull-down interno. Por eso el test inicia con
-// el limite deshabilitado; se puede habilitar con CONFIG q1_limit_enabled=true
-// cuando el final de carrera tenga resistencia externa y cableado correcto.
-static volatile bool q1LimitEnabled = false;
+// Limit switch normalmente abierto en GPIO34.
+// Con pull-down externo: abierto = LOW, presionado/cerrado = HIGH.
+static volatile bool q1LimitEnabled = true;
 
 static const float SERVO_MIN_DEG = 0.0f;
 static const float SERVO_MAX_DEG = 180.0f;
@@ -67,8 +66,8 @@ static const float TOOL_HOME_DEG = 0.0f;
 static const float TOOL_ASPIRATE_DEG = 180.0f;
 static const float TOOL_DISPENSE_DEG = 0.0f;
 
-// GPIO34 requiere resistencia externa. Ajustar si el switch es activo alto.
-static const int ESTOP_ACTIVE_LEVEL = LOW;
+// GPIO34 no tiene pull-up/pull-down interno; requiere resistencia externa.
+static const int ESTOP_ACTIVE_LEVEL = HIGH;
 
 static volatile bool robotArmed = false;
 static volatile bool motionBusy = false;
