@@ -28,9 +28,11 @@ class ActuatorMapper:
         self,
         z_pitch_m_per_rev: float = 0.002,
 
-        # MG996R continuo:
-        # 45 RPM * 0.002 m/rev / 60 = 0.0015 m/s
-        z_speed_m_per_s: float = 0.0015,
+        # Velocidad efectiva calibrada para el eje Z.
+        # Valor anterior: 0.0015 m/s.
+        # El actuador fisico se mueve mas rapido, por eso se aumenta
+        # la velocidad configurada y se reducen los tiempos enviados.
+        z_speed_m_per_s: float = 0.0060,
 
         z_min_m: float = 0.0,
         z_max_m: Optional[float] = 0.4,
