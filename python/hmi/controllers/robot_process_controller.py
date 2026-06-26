@@ -1,5 +1,3 @@
-from email import message
-
 from PySide6.QtCore import QObject, Signal, QThread
 
 from control.serial_controller import SerialController
@@ -130,11 +128,21 @@ class RobotProcessController(QObject):
             return
 
         self.status_changed.emit("Enviando HOME.")
-        self.motion_sender.home()
+
+        try:
+            self.motion_sender.home()
+        except Exception as exc:
+            self.status_changed.emit(f"Error enviando HOME: {exc}")
 
     def stop(self) -> None:
         if self.motion_sender is not None:
-            self.motion_sender.stop()
+            try:
+                # STOP es la excepción de seguridad: se envía inmediatamente sin
+                # bloquear la HMI esperando respuesta. El hilo de lectura seguirá
+                # reportando ACK/STOPPED cuando el ESP32 los mande.
+                self.motion_sender.stop(wait=False)
+            except Exception as exc:
+                self.status_changed.emit(f"Error enviando STOP: {exc}")
 
         self.is_running = False
         self.running_changed.emit(False)
@@ -142,7 +150,10 @@ class RobotProcessController(QObject):
 
     def estop(self) -> None:
         if self.motion_sender is not None:
-            self.motion_sender.estop()
+            try:
+                self.motion_sender.estop(wait=False)
+            except Exception as exc:
+                self.status_changed.emit(f"Error enviando ESTOP: {exc}")
 
         self.is_running = False
         self.running_changed.emit(False)
@@ -156,7 +167,7 @@ class RobotProcessController(QObject):
         if not self._require_connection():
             return
 
-        #if not self.is_homed:
+        if not self.is_homed:
             self.status_changed.emit("Error: debe hacer HOME antes de iniciar.")
             return
 
@@ -221,9 +232,15 @@ class RobotProcessController(QObject):
         if homed:
             self.is_homed = True
             self.homed_changed.emit(True)
+
         if status == "HOMING":
             self.is_homed = False
             self.homed_changed.emit(False)
+            return
+
+        if status == "STOPPED":
+            self.is_running = False
+            self.running_changed.emit(False)
             return
 
         if status == "ESTOPPED":
@@ -231,7 +248,7 @@ class RobotProcessController(QObject):
             self.is_running = False
             self.homed_changed.emit(False)
             self.running_changed.emit(False)
-        return
+            return
 
     def _on_serial_error(self, message: str) -> None:
         self.status_changed.emit(f"Serial error: {message}")
