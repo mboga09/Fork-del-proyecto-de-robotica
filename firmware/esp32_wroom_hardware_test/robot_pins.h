@@ -6,7 +6,10 @@
 static const int PIN_Q1_Z_SCREW = 18;
 static const int PIN_Q2_ARM_1 = 19;
 static const int PIN_Q3_ARM_2 = 21;
-static const int PIN_TOOL_SUCTION = 22;
+static const int PIN_TOOL_SERVO = 22;
+
+// Backward-compatible alias for older code names.
+static const int PIN_TOOL_SUCTION = PIN_TOOL_SERVO;
 
 // GPIO34 is input-only and has no internal pull-up/pull-down on ESP32.
 // Use an external pull-up or pull-down resistor according to wiring.
