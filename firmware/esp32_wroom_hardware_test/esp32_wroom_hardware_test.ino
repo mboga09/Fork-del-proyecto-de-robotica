@@ -45,14 +45,20 @@ static const float SERVO_MAX_DEG = 180.0f;
 static const float MAX_Z_TEST_TIME_S = 2.0f;
 
 static const float ROTARY_STEP_DEG = 0.5f;
-static const float TOOL_STEP_DEG = 2.0f;
 static const uint32_t MOTION_PERIOD_MS = 25;
 
-// Tool servo convention:
-//   TOOL_HOME      -> 90 deg
-//   TOOL_ASPIRATE  -> 180 deg   equivalente al sentido +180 mecanico
-//   TOOL_DISPENSE  -> 0 deg     equivalente al sentido -180 mecanico
-static const float TOOL_HOME_DEG = 90.0f;
+// Tool servo calibration copied from the standalone Arduino test:
+//   for angle 0..180: write(angle), delay(15)  -> aspirate
+//   for angle 180..0: write(angle), delay(15)  -> dispense
+static const float TOOL_STEP_DEG = 1.0f;
+static const uint32_t TOOL_PERIOD_MS = 15;
+static const uint32_t TOOL_HOLD_MS = 1000;
+
+// Tool servo convention on GPIO22/D22:
+//   TOOL_HOME      -> 0 deg
+//   TOOL_ASPIRATE  -> 180 deg, after sweeping 0 -> 180
+//   TOOL_DISPENSE  -> 0 deg, after sweeping 180 -> 0
+static const float TOOL_HOME_DEG = 0.0f;
 static const float TOOL_ASPIRATE_DEG = 180.0f;
 static const float TOOL_DISPENSE_DEG = 0.0f;
 
@@ -361,9 +367,10 @@ void executeToolMove(const char* name, float targetDeg) {
     if (fabs(currentToolDeg - targetTool) < 0.01f) {
       break;
     }
-    vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(MOTION_PERIOD_MS));
+    vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(TOOL_PERIOD_MS));
   }
 
+  vTaskDelay(pdMS_TO_TICKS(TOOL_HOLD_MS));
   motionBusy = false;
   publishPosition(name);
   queueStatus("IDLE", "IDLE", "Tool servo movement completed");
