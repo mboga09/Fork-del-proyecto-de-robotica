@@ -25,22 +25,21 @@ q_safe:
   theta3_deg: 0.0
 
 source:
-  # Reservorio espejado con respecto al eje X de la base:
-  # se conserva x y se invierte y respecto al lado del plato.
+  # Reservorio en el mismo semiplano angular alcanzable por q2.
+  # Con el modelo actual, y negativo requería q2 ≈ -75.6° y fallaba.
   pose:
     x: 0.174
-    y: -0.207
+    y: 0.207
     z: 0.200
 
   # Cada toma baja 1 mm adicional porque el nivel del líquido se reduce.
   depth_step_m: 0.001
 
-  # Semilla IK aproximada para la pose de aproximación del reservorio.
-  # La tarea recalcula la IK desde la pose cartesiana antes de ejecutar.
+  # Semilla IK para la pose de aproximación del reservorio con q3 offset 45°.
   approach_q:
     d1: 0.2595
-    theta2_deg: -75.609
-    theta3_deg: 51.318
+    theta2_deg: 24.291
+    theta3_deg: 6.318
 
 wells:
   A1:
