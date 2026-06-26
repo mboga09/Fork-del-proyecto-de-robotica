@@ -40,6 +40,11 @@ static volatile int q1StopUs = 1500;
 static volatile int q1ForwardUs = 1700;
 static volatile int q1ReverseUs = 1300;
 
+// GPIO34 no tiene pull-up/pull-down interno. Por eso el test inicia con
+// el limite deshabilitado; se puede habilitar con CONFIG q1_limit_enabled=true
+// cuando el final de carrera tenga resistencia externa y cableado correcto.
+static volatile bool q1LimitEnabled = false;
+
 static const float SERVO_MIN_DEG = 0.0f;
 static const float SERVO_MAX_DEG = 180.0f;
 static const float MAX_Z_TEST_TIME_S = 2.0f;
@@ -88,6 +93,7 @@ struct RobotCommand {
   int q1Stop;
   int q1Forward;
   int q1Reverse;
+  bool q1LimitEnabled;
 };
 
 static QueueHandle_t commandQueue;
@@ -96,6 +102,10 @@ static QueueHandle_t logQueue;
 struct LogLine {
   char line[384];
 };
+
+bool q1LimitRawActive() {
+  return digitalRead(PIN_Q1_ESTOP_LIMIT) == ESTOP_ACTIVE_LEVEL;
+}
 
 void queueRawJson(const char* json) {
   if (logQueue == nullptr) {
@@ -114,6 +124,8 @@ void queueStatus(const char* status, const char* state, const char* message) {
   doc["state"] = state;
   doc["armed"] = robotArmed;
   doc["busy"] = motionBusy;
+  doc["q1_limit_enabled"] = q1LimitEnabled;
+  doc["q1_limit_raw_active"] = q1LimitRawActive();
   doc["message"] = message;
   char out[384];
   serializeJson(doc, out, sizeof(out));
@@ -132,6 +144,8 @@ void sendAckNow(const char* cmd, const char* message) {
   doc["ok"] = true;
   doc["armed"] = robotArmed;
   doc["busy"] = motionBusy;
+  doc["q1_limit_enabled"] = q1LimitEnabled;
+  doc["q1_limit_raw_active"] = q1LimitRawActive();
   doc["message"] = message;
   sendJsonNow(doc);
 }
@@ -143,6 +157,8 @@ void sendErrorNow(const char* cmd, const char* message) {
   doc["ok"] = false;
   doc["armed"] = robotArmed;
   doc["busy"] = motionBusy;
+  doc["q1_limit_enabled"] = q1LimitEnabled;
+  doc["q1_limit_raw_active"] = q1LimitRawActive();
   doc["message"] = message;
   sendJsonNow(doc);
 }
@@ -154,6 +170,8 @@ void sendDebugRawNow(const String& line) {
   doc["state"] = motionBusy ? "MOVING" : "IDLE";
   doc["armed"] = robotArmed;
   doc["busy"] = motionBusy;
+  doc["q1_limit_enabled"] = q1LimitEnabled;
+  doc["q1_limit_raw_active"] = q1LimitRawActive();
   doc["message"] = line;
   sendJsonNow(doc);
 }
@@ -191,11 +209,14 @@ void setQ1Direction(int zDir) {
 }
 
 bool estopIsActive() {
-  return digitalRead(PIN_Q1_ESTOP_LIMIT) == ESTOP_ACTIVE_LEVEL;
+  if (!q1LimitEnabled) {
+    return false;
+  }
+  return q1LimitRawActive();
 }
 
 void IRAM_ATTR onEstopChange() {
-  if (digitalRead(PIN_Q1_ESTOP_LIMIT) == ESTOP_ACTIVE_LEVEL) {
+  if (q1LimitEnabled && digitalRead(PIN_Q1_ESTOP_LIMIT) == ESTOP_ACTIVE_LEVEL) {
     estopRequested = true;
     stopRequested = true;
   }
@@ -229,6 +250,8 @@ void publishPosition(const char* name) {
   doc["q2_trim_deg"] = q2TrimDeg;
   doc["q3_trim_deg"] = q3TrimDeg;
   doc["tool_trim_deg"] = toolTrimDeg;
+  doc["q1_limit_enabled"] = q1LimitEnabled;
+  doc["q1_limit_raw_active"] = q1LimitRawActive();
   char out[384];
   serializeJson(doc, out, sizeof(out));
   queueRawJson(out);
@@ -383,6 +406,11 @@ void applyConfig(const RobotCommand& command) {
   q1StopUs = command.q1Stop;
   q1ForwardUs = command.q1Forward;
   q1ReverseUs = command.q1Reverse;
+  q1LimitEnabled = command.q1LimitEnabled;
+  if (!q1LimitEnabled) {
+    estopRequested = false;
+    stopRequested = false;
+  }
   stopQ1();
   queueStatus("CONFIG", "IDLE", "Runtime trims updated");
 }
@@ -476,6 +504,7 @@ void handleLine(String line) {
   command.q1Stop = doc["q1_stop_us"] | q1StopUs;
   command.q1Forward = doc["q1_forward_us"] | q1ForwardUs;
   command.q1Reverse = doc["q1_reverse_us"] | q1ReverseUs;
+  command.q1LimitEnabled = doc["q1_limit_enabled"] | q1LimitEnabled;
 
   if (strlen(command.cmd) == 0) {
     sendErrorNow("UNKNOWN", "Missing cmd");
