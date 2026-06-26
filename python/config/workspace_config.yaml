@@ -25,22 +25,15 @@ q_safe:
   theta3_deg: 0.0
 
 source:
-  # Reservorio espejado con respecto al eje X de la base:
-  # se conserva x y se invierte y respecto al lado del plato.
   pose:
     x: 0.174
-    y: -0.207
+    y: 0.207
     z: 0.200
 
-  # Cada toma baja 1 mm adicional porque el nivel del líquido se reduce.
-  depth_step_m: 0.001
-
-  # Semilla IK aproximada para la pose de aproximación del reservorio.
-  # La tarea recalcula la IK desde la pose cartesiana antes de ejecutar.
   approach_q:
     d1: 0.2595
-    theta2_deg: -75.609
-    theta3_deg: 51.318
+    theta2_deg: 24.291
+    theta3_deg: 17
 
 wells:
   A1:
@@ -51,7 +44,7 @@ wells:
     approach_q:
       d1: 0.0815
       theta2_deg: 24.313
-      theta3_deg: 80.162
+      theta3_deg: 26.6
 
   A2:
     pose:
@@ -61,7 +54,7 @@ wells:
     approach_q:
       d1: 0.0815
       theta2_deg: 22.333
-      theta3_deg: 67.876
+      theta3_deg: 22.62
 
   A3:
     pose:
