@@ -46,14 +46,13 @@ class ActuatorMapper:
         q2_direction: float = 1.0,
 
         # J3:
-        # El servo esta montado al reves y usa una escala 2:1 respecto al
-        # angulo q3 del modelo.
-        # q3 = -45 deg -> senal = 180 deg
-        # q3 =   0 deg -> senal = 90 deg
-        # q3 =  45 deg -> senal = 0 deg
+        # Se calcula primero el angulo logico 1:1 del servo:
+        #   q3_logico = q3_servo_at_zero_deg + q3_ratio * theta3_deg
+        # Luego, como el servo esta montado al reves, se invierte la senal:
+        #   servo3 = 180 - q3_logico
         q3_servo_at_zero_deg: float = 90.0,
-        q3_ratio: float = 2.0,
-        q3_direction: float = -1.0,
+        q3_ratio: float = 1.0,
+        q3_direction: float = 1.0,
 
         servo_min_deg: float = 0.0,
         servo_max_deg: float = 180.0,
@@ -108,10 +107,11 @@ class ActuatorMapper:
             + self.q2_direction * self.q2_ratio * theta2_deg
         )
 
-        servo3_deg = (
+        servo3_logical_deg = (
             self.q3_servo_at_zero_deg
             + self.q3_direction * self.q3_ratio * theta3_deg
         )
+        servo3_deg = self.servo_max_deg - servo3_logical_deg
 
         self._validate_servo("servo2", servo2_deg)
         self._validate_servo("servo3", servo3_deg)
