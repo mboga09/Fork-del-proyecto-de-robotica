@@ -34,8 +34,10 @@ class ActuatorMapper:
         # la velocidad configurada y se reducen los tiempos enviados.
         z_speed_m_per_s: float = 0.0060,
 
-        z_min_m: float = 0.0,
-        z_max_m: Optional[float] = 0.4,
+        # El eje Z usa finales de carrera fisicos. Por defecto no se limita
+        # por software en el mapper para permitir jog manual antes de HOME.
+        z_min_m: Optional[float] = None,
+        z_max_m: Optional[float] = None,
 
         # J2:
         # La prueba fisica mostro que el eje Y estaba espejado.
@@ -124,7 +126,7 @@ class ActuatorMapper:
         )
 
     def _validate_d1(self, d1_m: float):
-        if d1_m < self.z_min_m:
+        if self.z_min_m is not None and d1_m < self.z_min_m:
             raise ValueError(
                 f"d1={d1_m:.4f} m está por debajo del mínimo {self.z_min_m:.4f} m."
             )
