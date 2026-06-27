@@ -25,15 +25,15 @@ q_safe:
   theta3_deg: 0.0
 
 source:
-  # Source mirrored across X axis, then moved -0.030 m in X from the mirrored point.
+  # Source mirrored across X axis, moved -0.030 m in X, then +0.050 m in Y.
   # Reachability check with L2=L3=0.150 m and q3 offset removed:
-  #   r = sqrt(0.144^2 + (-0.207)^2) = 0.252 m
-  #   elbow-down approx: theta2=-18.208 deg, theta3=-65.607 deg
-  #   elbow-up approx:   theta2=-92.569 deg, theta3=65.607 deg
+  #   r = sqrt(0.144^2 + (-0.157)^2) = 0.213 m
+  #   elbow-down approx: theta2=-2.718 deg, theta3=-89.510 deg
+  #   elbow-up approx:   theta2=-92.228 deg, theta3=89.510 deg
   # Both branches violate the current joint limits, so no IK seed is updated.
   pose:
     x: 0.144
-    y: -0.207
+    y: -0.157
     z: 0.200
 
   # Cada toma baja 1 mm adicional porque el nivel del liquido se reduce.
