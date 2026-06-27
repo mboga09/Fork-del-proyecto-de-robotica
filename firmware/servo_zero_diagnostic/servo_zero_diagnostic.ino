@@ -36,11 +36,11 @@ static const unsigned long SERIAL_BAUD = 115200;
 // SERVO_3_PIN=5, but GPIO6 is usually reserved for flash on ESP32-WROOM.
 // For ESP32-WROOM, choose real available GPIOs wired to the servo signals.
 #ifndef SERVO_2_PIN
-#define SERVO_2_PIN 18
+#define SERVO_2_PIN 19
 #endif
 
 #ifndef SERVO_3_PIN
-#define SERVO_3_PIN 19
+#define SERVO_3_PIN 21
 #endif
 
 // Safe starting positions. These match the last reported firmware status.
