@@ -46,13 +46,18 @@ class ActuatorMapper:
         q2_direction: float = 1.0,
 
         # J3:
-        # Servo 180 deg con relacion 1:1.
-        # q3 = -45 deg -> servo = 45 deg
-        # q3 =   0 deg -> servo = 90 deg
-        # q3 =  45 deg -> servo = 135 deg
+        # El servo esta montado al reves.
+        # La senal enviada se invierte respecto al angulo logico:
+        # angulo logico 0 deg   -> senal 180 deg
+        # angulo logico 90 deg  -> senal 90 deg
+        # angulo logico 180 deg -> senal 0 deg
+        # Con zero en 90 deg:
+        # q3 = -45 deg -> senal = 135 deg
+        # q3 =   0 deg -> senal = 90 deg
+        # q3 =  45 deg -> senal = 45 deg
         q3_servo_at_zero_deg: float = 90.0,
         q3_ratio: float = 1.0,
-        q3_direction: float = 1.0,
+        q3_direction: float = -1.0,
 
         servo_min_deg: float = 0.0,
         servo_max_deg: float = 180.0,
