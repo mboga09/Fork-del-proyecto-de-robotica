@@ -25,17 +25,21 @@ q_safe:
   theta3_deg: 0.0
 
 source:
-  # Reservorio en el mismo semiplano angular alcanzable por q2.
-  # Con el modelo actual, y negativo requería q2 ≈ -75.6° y fallaba.
+  # Source mirrored across X axis: x is unchanged, y changes sign.
+  # Analytic check with L2=L3=0.150 m and q3 offset removed:
+  #   x=0.174, y=-0.207 needs approximately
+  #   theta2=-24.291 deg, theta3=-51.318 deg.
+  #   theta3 is outside the current [-45, 45] deg model limit.
   pose:
     x: 0.174
-    y: 0.207
+    y: -0.207
     z: 0.200
 
-  # Cada toma baja 1 mm adicional porque el nivel del líquido se reduce.
+  # Cada toma baja 1 mm adicional porque el nivel del liquido se reduce.
   depth_step_m: 0.001
 
-  # Semilla IK para la pose de aproximación del reservorio con q3 offset 45°.
+  # Seed kept inside current limits. Not updated to the analytic source
+  # solution because that would require theta3=-51.318 deg.
   approach_q:
     d1: 0.2595
     theta2_deg: 24.291
