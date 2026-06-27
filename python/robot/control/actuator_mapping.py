@@ -21,7 +21,7 @@ class ActuatorMapper:
 
     J1: MG996R continuo + tornillo 2 mm/rev
     J2: MG996R 180 deg, con limite cinematico actual [-30 deg, 30 deg]
-    J3: MG996R 180 deg, relacion 1:1, con q3 cinematico [-45 deg, 45 deg]
+    J3: MG996R 180 deg, con limite cinematico actual [-45 deg, 45 deg]
     """
 
     def __init__(
@@ -46,17 +46,13 @@ class ActuatorMapper:
         q2_direction: float = 1.0,
 
         # J3:
-        # El servo esta montado al reves.
-        # La senal enviada se invierte respecto al angulo logico:
-        # angulo logico 0 deg   -> senal 180 deg
-        # angulo logico 90 deg  -> senal 90 deg
-        # angulo logico 180 deg -> senal 0 deg
-        # Con zero en 90 deg:
-        # q3 = -45 deg -> senal = 135 deg
+        # El servo esta montado al reves y usa una escala 2:1 respecto al
+        # angulo q3 del modelo.
+        # q3 = -45 deg -> senal = 180 deg
         # q3 =   0 deg -> senal = 90 deg
-        # q3 =  45 deg -> senal = 45 deg
+        # q3 =  45 deg -> senal = 0 deg
         q3_servo_at_zero_deg: float = 90.0,
-        q3_ratio: float = 1.0,
+        q3_ratio: float = 2.0,
         q3_direction: float = -1.0,
 
         servo_min_deg: float = 0.0,
