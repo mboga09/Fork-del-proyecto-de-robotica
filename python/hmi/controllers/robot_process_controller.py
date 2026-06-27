@@ -77,34 +77,21 @@ class RobotProcessController(QObject):
         self._thread: QThread | None = None
         self._worker: TransferWorker | None = None
 
-    # ---------------------------------------------------------
-    # Serial
-    # ---------------------------------------------------------
-
     def connect_serial(self, port: str, baudrate: int) -> None:
         if self.serial_controller is not None and self.serial_controller.is_connected:
             self.status_changed.emit("Ya existe una conexión serial activa.")
             return
 
-        self.serial_controller = SerialController(
-            port=port,
-            baud_rate=baudrate,
-        )
-
+        self.serial_controller = SerialController(port=port, baud_rate=baudrate)
         self.serial_controller.on_message = self._on_firmware_message
         self.serial_controller.on_error = self._on_serial_error
-
         self.serial_controller.connect()
 
         if self.serial_controller.is_connected:
             self.motion_sender = JsonMotionSender(self.serial_controller)
-
             self.executor.dry_run = False
             self.executor.command_sender = self.motion_sender.send_actuator_target
-            # En este diagnóstico el JsonMotionSender ya espera ACK + estado
-            # terminal del ESP32. No hacemos un segundo sleep en Python.
             self.executor.wait_after_send = False
-
             self.connection_changed.emit(True)
             self.status_changed.emit(f"Conectado a {port} @ {baudrate}.")
         else:
@@ -119,20 +106,13 @@ class RobotProcessController(QObject):
         self.executor.dry_run = True
         self.executor.command_sender = None
         self.executor.wait_after_send = True
-
         self.connection_changed.emit(False)
         self.status_changed.emit("Desconectado.")
-
-    # ---------------------------------------------------------
-    # Comandos directos
-    # ---------------------------------------------------------
 
     def home(self) -> None:
         if not self._require_connection():
             return
-
         self.status_changed.emit("Enviando HOME.")
-
         try:
             self.motion_sender.home()
         except Exception as exc:
@@ -141,13 +121,9 @@ class RobotProcessController(QObject):
     def stop(self) -> None:
         if self.motion_sender is not None:
             try:
-                # STOP es la excepción de seguridad: se envía inmediatamente sin
-                # bloquear la HMI esperando respuesta. El hilo de lectura seguirá
-                # reportando ACK/STOPPED cuando el ESP32 los mande.
                 self.motion_sender.stop(wait=False)
             except Exception as exc:
                 self.status_changed.emit(f"Error enviando STOP: {exc}")
-
         self.is_running = False
         self.running_changed.emit(False)
         self.status_changed.emit("STOP enviado.")
@@ -158,7 +134,6 @@ class RobotProcessController(QObject):
                 self.motion_sender.estop(wait=False)
             except Exception as exc:
                 self.status_changed.emit(f"Error enviando ESTOP: {exc}")
-
         self.is_running = False
         self.running_changed.emit(False)
         self.status_changed.emit("ESTOP enviado.")
@@ -166,11 +141,9 @@ class RobotProcessController(QObject):
     def manual_z_jog(self, direction: int, distance_mm: float) -> None:
         if not self._require_connection():
             return
-
         if self.is_running:
             self.status_changed.emit("No se puede hacer jog manual mientras corre una tarea.")
             return
-
         if direction not in (-1, 1):
             self.status_changed.emit(f"Dirección Z inválida: {direction}")
             return
@@ -181,28 +154,23 @@ class RobotProcessController(QObject):
             return
 
         try:
+            if not self.is_homed:
+                self.status_changed.emit("Preparando controlador para jog Z manual.")
+                self.motion_sender.home()
+
             z_time_s = distance_m / self.mapper.z_speed_m_per_s
             self.status_changed.emit(
-                f"Jog Z {'subir' if direction > 0 else 'bajar'}: "
-                f"{distance_mm:.1f} mm, t={z_time_s:.3f} s"
+                f"Jog Z {'subir' if direction > 0 else 'bajar'}: {distance_mm:.1f} mm, t={z_time_s:.3f} s"
             )
             self.motion_sender.move_z_jog(z_dir=direction, z_time_s=z_time_s)
             self.executor.current_q[0] += direction * distance_m
-            self.status_changed.emit(
-                "Jog Z terminado. "
-                f"d1 virtual={self.executor.current_q[0]:.4f} m"
-            )
+            self.status_changed.emit(f"Jog Z terminado. d1 virtual={self.executor.current_q[0]:.4f} m")
         except Exception as exc:
             self.status_changed.emit(f"Error en jog Z: {exc}")
-
-    # ---------------------------------------------------------
-    # Transferencia
-    # ---------------------------------------------------------
 
     def start_transfer(self, wells: list[str]) -> None:
         if not self._require_connection():
             return
-
         if not self.is_homed:
             self.status_changed.emit("Error: debe hacer HOME antes de iniciar.")
             return
@@ -223,60 +191,45 @@ class RobotProcessController(QObject):
 
         self._thread = QThread()
         self._worker = TransferWorker(task, wells)
-
         self._worker.moveToThread(self._thread)
-
         self._thread.started.connect(self._worker.run)
         self._worker.status.connect(self.status_changed.emit)
         self._worker.error.connect(self._on_worker_error)
         self._worker.finished.connect(self._on_worker_finished)
-
         self._worker.finished.connect(self._thread.quit)
         self._worker.finished.connect(self._worker.deleteLater)
         self._thread.finished.connect(self._thread.deleteLater)
 
         self.is_running = True
         self.running_changed.emit(True)
-
         self.status_changed.emit(f"Iniciando tarea para wells: {wells}")
         self._thread.start()
-
-    # ---------------------------------------------------------
-    # Callbacks
-    # ---------------------------------------------------------
 
     def _on_firmware_message(self, message: dict) -> None:
         if not message:
             return
-
         print("RX FIRMWARE:", message, flush=True)
-
         self.status_changed.emit(get_message_text(message))
 
         status = message.get("status")
         homed = bool(message.get("homed", False))
-
         if status == "HOMED":
             self.is_homed = True
             self.executor.set_current_q(self.layout.q_home())
             self.homed_changed.emit(True)
             self.status_changed.emit("Robot homed. current_q reiniciado a q_home.")
             return
-
         if homed:
             self.is_homed = True
             self.homed_changed.emit(True)
-
         if status == "HOMING":
             self.is_homed = False
             self.homed_changed.emit(False)
             return
-
         if status == "STOPPED":
             self.is_running = False
             self.running_changed.emit(False)
             return
-
         if status == "ESTOPPED":
             self.is_homed = False
             self.is_running = False
@@ -299,9 +252,7 @@ class RobotProcessController(QObject):
         if self.serial_controller is None or not self.serial_controller.is_connected:
             self.status_changed.emit("Error: puerto serial no conectado.")
             return False
-
         if self.motion_sender is None:
             self.status_changed.emit("Error: motion sender no inicializado.")
             return False
-
         return True
