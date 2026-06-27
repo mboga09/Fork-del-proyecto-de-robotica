@@ -5,7 +5,7 @@ static const int PIN_Q1_Z_SCREW = 18;
 static const int PIN_Q2_ARM_1 = 19;
 static const int PIN_Q3_ARM_2 = 21;
 static const int PIN_TOOL_SERVO = 22;
-static const int PIN_Q1_LIMIT = 34;
+static const int PIN_Q1_HOME_SENSOR = 34;
 
 static const uint32_t BAUD_RATE = 115200;
 static const uint32_t SERVO_FREQ_HZ = 50;
@@ -21,7 +21,7 @@ static const uint8_t CH_TOOL = 3;
 static const int Q1_STOP_US = 1500;
 static const int Q1_FORWARD_US = 1700;
 static const int Q1_REVERSE_US = 1300;
-static const int LIMIT_ACTIVE_LEVEL = HIGH;
+static const int HOME_SENSOR_ACTIVE_LEVEL = HIGH;
 
 static const float SERVO_MIN_DEG = 0.0f;
 static const float SERVO_MAX_DEG = 180.0f;
@@ -80,8 +80,8 @@ void writeServoAngle(uint8_t channel, float angleDeg) {
   writeServoUs(channel, angleToUs(angleDeg));
 }
 
-bool q1LimitActive() {
-  return digitalRead(PIN_Q1_LIMIT) == LIMIT_ACTIVE_LEVEL;
+bool q1HomeSensorActive() {
+  return digitalRead(PIN_Q1_HOME_SENSOR) == HOME_SENSOR_ACTIVE_LEVEL;
 }
 
 void stopQ1() {
@@ -113,7 +113,7 @@ void queueStatus(const char* status, const char* state, const char* message) {
   doc["state"] = state;
   doc["armed"] = robotArmed;
   doc["busy"] = motionBusy;
-  doc["q1_limit_raw_active"] = q1LimitActive();
+  doc["q1_home_sensor_active"] = q1HomeSensorActive();
   doc["s2_deg"] = currentS2;
   doc["s3_deg"] = currentS3;
   doc["tool_deg"] = currentTool;
@@ -174,14 +174,10 @@ void enterEStop() {
   stopRequested = true;
   estopRequested = true;
   safeOutputs();
-  queueStatus("ESTOPPED", "ESTOPPED", "Q1 limit active; outputs safe");
+  queueStatus("ESTOPPED", "ESTOPPED", "ESTOP command received; outputs stopped");
 }
 
-void IRAM_ATTR onLimitChange() {
-  if (digitalRead(PIN_Q1_LIMIT) == LIMIT_ACTIVE_LEVEL) {
-    stopRequested = true;
-    estopRequested = true;
-  }
+void IRAM_ATTR onHomeSensorChange() {
 }
 
 bool validateAngle(float angle) {
@@ -204,7 +200,7 @@ void publishPosition(const char* name) {
   doc["s2_deg"] = currentS2;
   doc["s3_deg"] = currentS3;
   doc["tool_deg"] = currentTool;
-  doc["q1_limit_raw_active"] = q1LimitActive();
+  doc["q1_home_sensor_active"] = q1HomeSensorActive();
   char out[384];
   serializeJson(doc, out, sizeof(out));
   queueRaw(out);
@@ -215,7 +211,7 @@ void executeMove(const RobotCommand& command) {
     queueStatus("ERROR", "IDLE", "MOVE_ACT rejected: HOME required");
     return;
   }
-  if (q1LimitActive() || estopRequested) {
+  if (estopRequested) {
     enterEStop();
     return;
   }
@@ -225,6 +221,11 @@ void executeMove(const RobotCommand& command) {
   }
   if (command.zDir < -1 || command.zDir > 1 || command.zTimeS < 0.0f || command.zTimeS > MAX_Z_TIME_S) {
     queueStatus("ERROR", "IDLE", "MOVE_ACT rejected: unsafe z_time_s");
+    return;
+  }
+  if (q1HomeSensorActive() && command.zDir < 0) {
+    stopQ1();
+    queueStatus("IDLE", "IDLE", "Q1 home sensor active; negative Z command ignored");
     return;
   }
 
@@ -245,15 +246,20 @@ void executeMove(const RobotCommand& command) {
       queueStatus(estopRequested ? "ESTOPPED" : "STOPPED", estopRequested ? "ESTOPPED" : "STOPPED", "Motion interrupted");
       return;
     }
-    if (q1LimitActive()) {
-      enterEStop();
-      return;
-    }
 
     currentS2 = stepToward(currentS2, command.s2Deg, ROTARY_STEP_DEG);
     currentS3 = stepToward(currentS3, command.s3Deg, ROTARY_STEP_DEG);
     writeServoAngle(CH_Q2, currentS2);
     writeServoAngle(CH_Q3, currentS3);
+
+    if (zActive && command.zDir < 0 && q1HomeSensorActive()) {
+      zActive = false;
+      stopQ1();
+      motionBusy = false;
+      publishPosition(command.name);
+      queueStatus("IDLE", "IDLE", "Q1 home sensor reached; Z stopped");
+      return;
+    }
 
     if (zActive && millis() - startMs >= zDurationMs) {
       zActive = false;
@@ -303,22 +309,28 @@ void executeTool(const char* name, float targetDeg) {
   queueStatus("IDLE", "IDLE", "Tool completed");
 }
 
+void handleHome() {
+  estopRequested = false;
+  stopRequested = false;
+  robotArmed = true;
+  motionBusy = false;
+  safeOutputs();
+
+  if (q1HomeSensorActive()) {
+    queueStatus("HOMED", "IDLE", "Q1 home sensor active; position set to home");
+  } else {
+    queueStatus("HOMED", "IDLE", "Controller armed; Q1 home sensor is not active");
+  }
+}
+
 void motionTask(void* parameter) {
   RobotCommand command;
   for (;;) {
-    if (q1LimitActive() && !estopRequested) {
-      enterEStop();
-    }
     if (xQueueReceive(commandQueue, &command, pdMS_TO_TICKS(20)) == pdTRUE) {
       if (strcmp(command.cmd, "PING") == 0) {
         queueStatus("READY", "IDLE", "ESP32 HMI controller alive");
       } else if (strcmp(command.cmd, "HOME") == 0 || strcmp(command.cmd, "ARM_TEST") == 0) {
-        estopRequested = false;
-        stopRequested = false;
-        robotArmed = true;
-        motionBusy = false;
-        safeOutputs();
-        queueStatus("HOMED", "IDLE", "Controller armed; HOME accepted");
+        handleHome();
       } else if (strcmp(command.cmd, "MOVE_ACT") == 0) {
         executeMove(command);
       } else if (strcmp(command.cmd, "TOOL_ASPIRATE") == 0) {
@@ -408,7 +420,7 @@ void setup() {
   Serial.setTimeout(10);
   delay(500);
 
-  pinMode(PIN_Q1_LIMIT, INPUT);
+  pinMode(PIN_Q1_HOME_SENSOR, INPUT);
   ledcSetup(CH_Q1, SERVO_FREQ_HZ, SERVO_RES_BITS);
   ledcSetup(CH_Q2, SERVO_FREQ_HZ, SERVO_RES_BITS);
   ledcSetup(CH_Q3, SERVO_FREQ_HZ, SERVO_RES_BITS);
@@ -421,7 +433,7 @@ void setup() {
 
   commandQueue = xQueueCreate(12, sizeof(RobotCommand));
   logQueue = xQueueCreate(24, sizeof(LogLine));
-  attachInterrupt(digitalPinToInterrupt(PIN_Q1_LIMIT), onLimitChange, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(PIN_Q1_HOME_SENSOR), onHomeSensorChange, CHANGE);
   xTaskCreatePinnedToCore(serialTask, "SerialTask", 8192, nullptr, 2, nullptr, 0);
   xTaskCreatePinnedToCore(motionTask, "MotionTask", 8192, nullptr, 3, nullptr, 1);
   queueStatus("READY", "IDLE", "ESP32 HMI controller ready @ 115200");
