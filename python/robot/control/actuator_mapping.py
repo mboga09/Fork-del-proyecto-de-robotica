@@ -29,10 +29,9 @@ class ActuatorMapper:
         z_pitch_m_per_rev: float = 0.002,
 
         # Velocidad efectiva calibrada para el eje Z.
-        # Valor anterior: 0.0015 m/s.
-        # El actuador fisico se mueve mas rapido, por eso se aumenta
-        # la velocidad configurada y se reducen los tiempos enviados.
-        z_speed_m_per_s: float = 0.0060,
+        # Valor anterior: 0.0060 m/s.
+        # Se duplica para reducir a la mitad los tiempos enviados.
+        z_speed_m_per_s: float = 0.0120,
 
         # El eje Z usa finales de carrera fisicos. Por defecto no se limita
         # por software en el mapper para permitir jog manual antes de HOME.
