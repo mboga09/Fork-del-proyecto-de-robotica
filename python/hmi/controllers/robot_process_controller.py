@@ -1,7 +1,5 @@
 from PySide6.QtCore import QObject, Signal, QThread
 
-import numpy as np
-
 from control.serial_controller import SerialController
 from control.serial_protocol import get_message_text
 
@@ -51,8 +49,8 @@ class RobotProcessController(QObject):
         self.mapper = ActuatorMapper(
             z_pitch_m_per_rev=0.002,
             z_speed_m_per_s=0.0060,
-            z_min_m=0.0,
-            z_max_m=0.4,
+            z_min_m=None,
+            z_max_m=None,
         )
 
         self.planner = PathPlanner(
@@ -173,10 +171,6 @@ class RobotProcessController(QObject):
             self.status_changed.emit("No se puede hacer jog manual mientras corre una tarea.")
             return
 
-        if not self.is_homed:
-            self.status_changed.emit("Error: debe hacer HOME antes de mover Z manualmente.")
-            return
-
         if direction not in (-1, 1):
             self.status_changed.emit(f"Dirección Z inválida: {direction}")
             return
@@ -186,15 +180,18 @@ class RobotProcessController(QObject):
             self.status_changed.emit("La distancia de jog debe ser positiva.")
             return
 
-        q_target = np.asarray(self.executor.current_q, dtype=float).copy()
-        q_target[0] += direction * distance_m
-
         try:
+            z_time_s = distance_m / self.mapper.z_speed_m_per_s
             self.status_changed.emit(
-                f"Jog Z {'subir' if direction > 0 else 'bajar'}: {distance_mm:.1f} mm"
+                f"Jog Z {'subir' if direction > 0 else 'bajar'}: "
+                f"{distance_mm:.1f} mm, t={z_time_s:.3f} s"
             )
-            self.executor._execute_joint_point(q_target, index=0)
-            self.status_changed.emit(f"Jog Z terminado. d1={q_target[0]:.4f} m")
+            self.motion_sender.move_z_jog(z_dir=direction, z_time_s=z_time_s)
+            self.executor.current_q[0] += direction * distance_m
+            self.status_changed.emit(
+                "Jog Z terminado. "
+                f"d1 virtual={self.executor.current_q[0]:.4f} m"
+            )
         except Exception as exc:
             self.status_changed.emit(f"Error en jog Z: {exc}")
 
