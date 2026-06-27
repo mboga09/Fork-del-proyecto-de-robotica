@@ -25,21 +25,21 @@ q_safe:
   theta3_deg: 0.0
 
 source:
-  # Source mirrored across X axis: x is unchanged, y changes sign.
-  # Analytic check with L2=L3=0.150 m and q3 offset removed:
-  #   x=0.174, y=-0.207 needs approximately
-  #   theta2=-24.291 deg, theta3=-51.318 deg.
-  #   theta3 is outside the current [-45, 45] deg model limit.
+  # Source mirrored across X axis, then moved +0.100 m in X.
+  # Reachability check with L2=L3=0.150 m and q3 offset removed:
+  #   r = sqrt(0.274^2 + (-0.207)^2) = 0.343 m
+  #   max radial reach = 0.300 m
+  # This point is outside the geometric workspace, so no IK seed is updated.
   pose:
-    x: 0.174
+    x: 0.274
     y: -0.207
     z: 0.200
 
   # Cada toma baja 1 mm adicional porque el nivel del liquido se reduce.
   depth_step_m: 0.001
 
-  # Seed kept inside current limits. Not updated to the analytic source
-  # solution because that would require theta3=-51.318 deg.
+  # Seed kept inside current limits as a placeholder. It is not a valid IK
+  # solution for the source above because the source is outside max reach.
   approach_q:
     d1: 0.2595
     theta2_deg: 24.291
