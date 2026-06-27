@@ -25,13 +25,14 @@ q_safe:
   theta3_deg: 0.0
 
 source:
-  # Source mirrored across X axis, then moved +0.100 m in X.
+  # Source mirrored across X axis, then moved -0.030 m in X from the mirrored point.
   # Reachability check with L2=L3=0.150 m and q3 offset removed:
-  #   r = sqrt(0.274^2 + (-0.207)^2) = 0.343 m
-  #   max radial reach = 0.300 m
-  # This point is outside the geometric workspace, so no IK seed is updated.
+  #   r = sqrt(0.144^2 + (-0.207)^2) = 0.252 m
+  #   elbow-down approx: theta2=-18.208 deg, theta3=-65.607 deg
+  #   elbow-up approx:   theta2=-92.569 deg, theta3=65.607 deg
+  # Both branches violate the current joint limits, so no IK seed is updated.
   pose:
-    x: 0.274
+    x: 0.144
     y: -0.207
     z: 0.200
 
@@ -39,7 +40,7 @@ source:
   depth_step_m: 0.001
 
   # Seed kept inside current limits as a placeholder. It is not a valid IK
-  # solution for the source above because the source is outside max reach.
+  # solution for the source above because both elbow branches violate limits.
   approach_q:
     d1: 0.2595
     theta2_deg: 24.291
