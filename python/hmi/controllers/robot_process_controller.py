@@ -48,7 +48,7 @@ class RobotProcessController(QObject):
 
         self.mapper = ActuatorMapper(
             z_pitch_m_per_rev=0.002,
-            z_speed_m_per_s=0.0060,
+            z_speed_m_per_s=0.0120,
             z_min_m=None,
             z_max_m=None,
         )
