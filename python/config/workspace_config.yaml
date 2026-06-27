@@ -15,83 +15,91 @@ q_home:
   theta2_deg: 0.0
   theta3_deg: 0.0
 
-# TCP a z ≈ 0.060 m:
+# TCP a z aprox. 0.120 m:
 # z_tcp = base_z + d1 - 0.024
-# 0.060 = 0.0025 + d1 - 0.024
-# d1 = 0.0815
+# 0.120 = 0.0025 + d1 - 0.024
+# d1 = 0.1415
 q_safe:
-  d1: 0.0815
+  d1: 0.1415
   theta2_deg: 0.0
   theta3_deg: 0.0
 
 source:
+  # Reservorio en el mismo semiplano angular alcanzable por q2.
+  # Con el modelo actual, y negativo requería q2 ≈ -75.6° y fallaba.
   pose:
     x: 0.174
     y: 0.207
     z: 0.200
 
+  # Cada toma baja 1 mm adicional porque el nivel del líquido se reduce.
+  depth_step_m: 0.001
+
+  # Semilla IK para la pose de aproximación del reservorio con q3 offset 45°.
   approach_q:
     d1: 0.2595
     theta2_deg: 24.291
-    theta3_deg: 17
+    theta3_deg: 6.318
 
 wells:
+  # Rack 2x3 reubicado dentro del workspace actual.
+  # Pose numerica: A2 aprox. (0.2250, 0.1038), rotacion aprox. 129.7 deg.
   A1:
     pose:
-      x: 0.099203
-      y: 0.206997
+      x: 0.249912
+      y: 0.073793
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: 24.313
-      theta3_deg: 26.6
+      theta2_deg: -13.253
+      theta3_deg: 14.408
 
   A2:
     pose:
-      x: 0.138203
-      y: 0.206997
+      x: 0.225000
+      y: 0.103800
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: 22.333
-      theta3_deg: 22.62
+      theta2_deg: -9.548
+      theta3_deg: 23.627
 
   A3:
     pose:
-      x: 0.177203
-      y: 0.206997
+      x: 0.200088
+      y: 0.133807
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: 24.704
-      theta3_deg: 49.461
+      theta2_deg: -2.872
+      theta3_deg: 28.289
 
   B1:
     pose:
-      x: 0.099203
-      y: 0.167997
+      x: 0.279919
+      y: 0.098705
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: 10.005
-      theta3_deg: 98.866
+      theta2_deg: 11.063
+      theta3_deg: -28.278
 
   B2:
     pose:
-      x: 0.138203
-      y: 0.167997
+      x: 0.255007
+      y: 0.128712
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: 7.037
-      theta3_deg: 87.041
+      theta2_deg: 8.988
+      theta3_deg: -9.412
 
   B3:
     pose:
-      x: 0.177203
-      y: 0.167997
+      x: 0.230095
+      y: 0.158719
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: 7.954
-      theta3_deg: 71.036
+      theta2_deg: 13.308
+      theta3_deg: -2.420

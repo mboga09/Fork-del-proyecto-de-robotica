@@ -5,15 +5,6 @@ from tools.config_loader import load_yaml_config
 
 
 class LabLayout:
-    """
-    Carga posiciones de trabajo desde workspace_config.yaml.
-
-    Todas las posiciones cartesianas están en metros.
-    Todos los ángulos del YAML están en grados.
-    Internamente q se devuelve como:
-        [d1_m, theta2_rad, theta3_rad]
-    """
-
     def __init__(self, config_file: str = "workspace_config.yaml"):
         self.config = load_yaml_config(config_file)
 
@@ -25,6 +16,17 @@ class LabLayout:
 
     def source_pose(self) -> SE3:
         return self._pose_from_dict(self.config["source"]["pose"])
+
+    def source_pose_for_transfer(self, transfer_index: int) -> SE3:
+        if transfer_index < 0:
+            raise ValueError("transfer_index must be non-negative.")
+
+        data = dict(self.config["source"]["pose"])
+        data["z"] = float(data["z"]) - transfer_index * self.source_depth_step_m()
+        return self._pose_from_dict(data)
+
+    def source_depth_step_m(self) -> float:
+        return float(self.config.get("source", {}).get("depth_step_m", 0.0))
 
     def source_approach_q(self):
         return self._q_from_dict(self.config["source"]["approach_q"])
@@ -51,7 +53,7 @@ class LabLayout:
         wells = self.config.get("wells", {})
 
         if well_id not in wells:
-            raise ValueError(f"Well no configurado en workspace_config.yaml: {well_id}")
+            raise ValueError(f"Well not configured in workspace_config.yaml: {well_id}")
 
         return wells[well_id]
 

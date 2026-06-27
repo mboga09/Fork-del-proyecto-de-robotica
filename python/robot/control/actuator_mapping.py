@@ -20,35 +20,38 @@ class ActuatorMapper:
     Mapper para:
 
     J1: MG996R continuo + tornillo 2 mm/rev
-    J2: MG996R 180°, relación 1:1
-    J3: MG996R 180°, relación 3:1
+    J2: MG996R 180 deg, con limite cinemático actual [-30 deg, 30 deg]
+    J3: MG996R 180 deg, relacion 1:1, con q3 cinemático [-45 deg, 45 deg]
     """
 
     def __init__(
         self,
         z_pitch_m_per_rev: float = 0.002,
 
-        # MG996R continuo:
-        # 45 RPM * 0.002 m/rev / 60 = 0.0015 m/s
-        z_speed_m_per_s: float = 0.0015,
+        # Velocidad efectiva calibrada para el eje Z.
+        # Valor anterior: 0.0060 m/s.
+        # Se duplica para reducir a la mitad los tiempos enviados.
+        z_speed_m_per_s: float = 0.0120,
 
-        z_min_m: float = 0.0,
-        z_max_m: Optional[float] = 0.4,
+        # El eje Z usa finales de carrera fisicos. Por defecto no se limita
+        # por software en el mapper para permitir jog manual antes de HOME.
+        z_min_m: Optional[float] = None,
+        z_max_m: Optional[float] = None,
 
         # J2:
-        # q2 = -45° -> servo = 0°
-        # q2 =   0° -> servo = 45°
-        # q2 = 135° -> servo = 180°
+        # La prueba fisica mostro que el eje Y estaba espejado.
+        # Se corrige invirtiendo la direccion del actuador q2, sin mover el layout.
         q2_servo_at_zero_deg: float = 45.0,
         q2_ratio: float = 1.0,
-        q2_direction: float = 1.0,
+        q2_direction: float = -1.0,
 
         # J3:
-        # q3 = -30° -> servo = 0°
-        # q3 =   0° -> servo = 90°
-        # q3 =  30° -> servo = 180°
+        # Servo 180 deg con relacion 1:1.
+        # q3 = -45 deg -> servo = 45 deg
+        # q3 =   0 deg -> servo = 90 deg
+        # q3 =  45 deg -> servo = 135 deg
         q3_servo_at_zero_deg: float = 90.0,
-        q3_ratio: float = 3.0,
+        q3_ratio: float = 1.0,
         q3_direction: float = 1.0,
 
         servo_min_deg: float = 0.0,
@@ -122,7 +125,7 @@ class ActuatorMapper:
         )
 
     def _validate_d1(self, d1_m: float):
-        if d1_m < self.z_min_m:
+        if self.z_min_m is not None and d1_m < self.z_min_m:
             raise ValueError(
                 f"d1={d1_m:.4f} m está por debajo del mínimo {self.z_min_m:.4f} m."
             )

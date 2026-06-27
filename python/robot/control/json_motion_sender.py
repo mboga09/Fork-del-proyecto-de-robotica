@@ -3,6 +3,10 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 from control.serial_protocol import (
+    Command,
+    FIELD_COMMAND,
+    FIELD_Z_DIR,
+    FIELD_Z_TIME_S,
     make_home_command,
     make_stop_command,
     make_estop_command,
@@ -104,6 +108,33 @@ class JsonMotionSender:
             s2_deg=s2_deg,
             s3_deg=s3_deg,
         )
+        self._send_and_wait(command, terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"))
+
+    def move_z_jog(self, z_dir: int, z_time_s: float) -> None:
+        """
+        Envía un jog puro de Z sin mandar s2_deg/s3_deg.
+
+        El firmware conserva los servos rotativos en su último valor interno
+        cuando esos campos no vienen en el JSON. Esto permite probar Z antes de
+        HOME sin forzar q2/q3 a una pose asumida por Python.
+        """
+
+        z_dir = int(z_dir)
+        z_time_s = float(z_time_s)
+
+        if z_dir not in (-1, 1):
+            raise ValueError("z_dir debe ser -1 o 1 para un jog de Z.")
+
+        if z_time_s <= 0.0:
+            raise ValueError("z_time_s debe ser positivo para un jog de Z.")
+
+        command = {
+            FIELD_COMMAND: Command.MOVE_ACT.value,
+            FIELD_Z_DIR: z_dir,
+            FIELD_Z_TIME_S: round(z_time_s, 3),
+        }
+
+        print("TX Z_JOG:", command, flush=True)
         self._send_and_wait(command, terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"))
 
     # ---------------------------------------------------------
