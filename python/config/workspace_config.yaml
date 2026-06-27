@@ -25,26 +25,26 @@ q_safe:
   theta3_deg: 0.0
 
 source:
-  # Source mirrored across X axis, moved -0.030 m in X, then +0.050 m in Y.
+  # Source mirrored across X axis, moved -0.030 m in X, +0.050 m in Y,
+  # then +0.100 m in X.
   # Reachability check with L2=L3=0.150 m and q3 offset removed:
-  #   r = sqrt(0.144^2 + (-0.157)^2) = 0.213 m
-  #   elbow-down approx: theta2=-2.718 deg, theta3=-89.510 deg
-  #   elbow-up approx:   theta2=-92.228 deg, theta3=89.510 deg
-  # Both branches violate the current joint limits, so no IK seed is updated.
+  #   r = sqrt(0.244^2 + (-0.157)^2) = 0.290 m
+  #   elbow-down approx: theta2=-18.034 deg, theta3=-29.451 deg
+  #   elbow-up approx:   theta2=-47.484 deg, theta3=29.451 deg
+  # Elbow-down is inside the current joint limits, so approach_q is updated.
   pose:
-    x: 0.144
+    x: 0.244
     y: -0.157
     z: 0.200
 
   # Cada toma baja 1 mm adicional porque el nivel del liquido se reduce.
   depth_step_m: 0.001
 
-  # Seed kept inside current limits as a placeholder. It is not a valid IK
-  # solution for the source above because both elbow branches violate limits.
+  # Valid elbow-down IK seed for the source approach pose.
   approach_q:
     d1: 0.2595
-    theta2_deg: 24.291
-    theta3_deg: 6.318
+    theta2_deg: -18.034
+    theta3_deg: -29.451
 
 wells:
   # Rack 2x3 reubicado dentro del workspace actual.
