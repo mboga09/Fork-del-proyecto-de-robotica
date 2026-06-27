@@ -1,3 +1,5 @@
+import json
+
 from PySide6.QtCore import QObject, Signal, QThread
 
 from control.serial_controller import SerialController
@@ -167,6 +169,33 @@ class RobotProcessController(QObject):
             self.status_changed.emit(f"Jog Z terminado. d1 virtual={self.executor.current_q[0]:.4f} m")
         except Exception as exc:
             self.status_changed.emit(f"Error en jog Z: {exc}")
+
+    def send_raw_serial_command(self, command_text: str) -> None:
+        if self.serial_controller is None or not self.serial_controller.is_connected:
+            self.status_changed.emit("Error: puerto serial no conectado.")
+            return
+        if self.is_running:
+            self.status_changed.emit("No se puede enviar comando serial manual mientras corre una tarea.")
+            return
+
+        command_text = command_text.strip()
+        if not command_text:
+            self.status_changed.emit("Error: comando serial vacío.")
+            return
+
+        try:
+            command = json.loads(command_text)
+        except json.JSONDecodeError as exc:
+            self.status_changed.emit(f"Error: JSON inválido: {exc}")
+            return
+
+        if not isinstance(command, dict):
+            self.status_changed.emit("Error: el comando serial debe ser un objeto JSON.")
+            return
+
+        cmd = str(command.get("cmd", "UNKNOWN"))
+        self.status_changed.emit(f"TX raw serial [{cmd}]: {command_text}")
+        self.serial_controller.send_command(command)
 
     def start_transfer(self, wells: list[str]) -> None:
         if not self._require_connection():
