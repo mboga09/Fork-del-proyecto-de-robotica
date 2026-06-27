@@ -10,17 +10,32 @@
 static bool robotHomed = true;
 static const char* robotState = "IDLE";
 
+static int currentS2Deg = 45;
+static int currentS3Deg = 90;
+static int currentToolDeg = 0;
+
+static const unsigned long SERIAL_BAUD = 115200;
+
 // ---------------------------------------------------------
 // Envío JSON directo
 // ---------------------------------------------------------
+
+void addCommonStatusFields(JsonDocument& doc) {
+  doc["state"] = robotState;
+  doc["homed"] = robotHomed;
+  doc["armed"] = true;
+  doc["busy"] = strcmp(robotState, "MOVING") == 0;
+  doc["s2_deg"] = currentS2Deg;
+  doc["s3_deg"] = currentS3Deg;
+  doc["tool_deg"] = currentToolDeg;
+}
 
 void directSendStatus(const char* status, const char* message) {
   StaticJsonDocument<256> doc;
 
   doc["type"] = "status";
   doc["status"] = status;
-  doc["state"] = robotState;
-  doc["homed"] = robotHomed;
+  addCommonStatusFields(doc);
   doc["message"] = message;
 
   serializeJson(doc, Serial);
@@ -33,6 +48,7 @@ void directSendAck(const char* cmd, const char* message) {
   doc["type"] = "ack";
   doc["cmd"] = cmd;
   doc["ok"] = true;
+  addCommonStatusFields(doc);
   doc["message"] = message;
 
   serializeJson(doc, Serial);
@@ -45,10 +61,23 @@ void directSendError(const char* cmd, const char* message) {
   doc["type"] = "error";
   doc["cmd"] = cmd;
   doc["ok"] = false;
+  addCommonStatusFields(doc);
   doc["message"] = message;
 
   serializeJson(doc, Serial);
   Serial.println();
+}
+
+bool validServoAngle(float angleDeg) {
+  return angleDeg >= 0.0f && angleDeg <= 180.0f;
+}
+
+void applyArmServoTargets(float s2Deg, float s3Deg) {
+  currentS2Deg = (int)constrain(s2Deg, 0.0f, 180.0f);
+  currentS3Deg = (int)constrain(s3Deg, 0.0f, 180.0f);
+
+  // z_dir=0 and z_time_s=0 keep the Z axis stopped while updating S2/S3.
+  moveActuators(0, 0.0f, currentS2Deg, currentS3Deg);
 }
 
 // ---------------------------------------------------------
@@ -79,21 +108,72 @@ void handleMoveActDirect(StaticJsonDocument<256>& doc) {
     return;
   }
 
-  if (s2Deg < 0.0f || s2Deg > 180.0f ||
-      s3Deg < 0.0f || s3Deg > 180.0f) {
+  if (!validServoAngle(s2Deg) || !validServoAngle(s3Deg)) {
     directSendError("MOVE_ACT", "Servo angle out of range");
     return;
   }
+
+  currentS2Deg = (int)s2Deg;
+  currentS3Deg = (int)s3Deg;
 
   directSendAck("MOVE_ACT", "MOVE_ACT received");
 
   robotState = "MOVING";
   directSendStatus("MOVING", "Actuator movement started");
 
-  moveActuators(zDir, zTimeS, s2Deg, s3Deg);
+  moveActuators(zDir, zTimeS, currentS2Deg, currentS3Deg);
 
   robotState = "IDLE";
   directSendStatus("IDLE", "Actuator movement completed");
+}
+
+void handleMoveServosDirect(StaticJsonDocument<256>& doc) {
+  if (!doc.containsKey("s2_deg") && !doc.containsKey("s3_deg")) {
+    directSendError("MOVE_SERVOS", "Expected s2_deg and/or s3_deg");
+    return;
+  }
+
+  float requestedS2Deg = doc["s2_deg"] | currentS2Deg;
+  float requestedS3Deg = doc["s3_deg"] | currentS3Deg;
+
+  if (!validServoAngle(requestedS2Deg) || !validServoAngle(requestedS3Deg)) {
+    directSendError("MOVE_SERVOS", "Servo angle out of range");
+    return;
+  }
+
+  directSendAck("MOVE_SERVOS", "MOVE_SERVOS received");
+
+  robotState = "MOVING";
+  directSendStatus("MOVING", "Applying manual servo command");
+
+  applyArmServoTargets(requestedS2Deg, requestedS3Deg);
+
+  robotState = "IDLE";
+  directSendStatus("IDLE", "Manual servo command completed");
+}
+
+void handleZeroDirect() {
+  directSendAck("ZERO", "ZERO received");
+
+  robotState = "MOVING";
+  directSendStatus("MOVING", "Moving S2/S3 to 0 degrees");
+
+  applyArmServoTargets(0.0f, 0.0f);
+
+  robotState = "IDLE";
+  directSendStatus("IDLE", "ZERO completed");
+}
+
+void handleCenterDirect() {
+  directSendAck("CENTER", "CENTER received");
+
+  robotState = "MOVING";
+  directSendStatus("MOVING", "Moving S2/S3 to 90 degrees");
+
+  applyArmServoTargets(90.0f, 90.0f);
+
+  robotState = "IDLE";
+  directSendStatus("IDLE", "CENTER completed");
 }
 
 void handleToolAspirateDirect() {
@@ -130,8 +210,7 @@ void processDirectJsonLine(String line) {
   StaticJsonDocument<256> rawDoc;
   rawDoc["type"] = "status";
   rawDoc["status"] = "DEBUG_RAW";
-  rawDoc["state"] = robotState;
-  rawDoc["homed"] = robotHomed;
+  addCommonStatusFields(rawDoc);
   rawDoc["message"] = line;
   serializeJson(rawDoc, Serial);
   Serial.println();
@@ -149,8 +228,7 @@ void processDirectJsonLine(String line) {
   StaticJsonDocument<128> debugDoc;
   debugDoc["type"] = "status";
   debugDoc["status"] = "DEBUG_CMD";
-  debugDoc["state"] = robotState;
-  debugDoc["homed"] = robotHomed;
+  addCommonStatusFields(debugDoc);
   debugDoc["message"] = cmd;
   serializeJson(debugDoc, Serial);
   Serial.println();
@@ -184,6 +262,18 @@ void processDirectJsonLine(String line) {
     handleMoveActDirect(doc);
   }
 
+  else if (strcmp(cmd, "MOVE_SERVOS") == 0) {
+    handleMoveServosDirect(doc);
+  }
+
+  else if (strcmp(cmd, "ZERO") == 0) {
+    handleZeroDirect();
+  }
+
+  else if (strcmp(cmd, "CENTER") == 0) {
+    handleCenterDirect();
+  }
+
   else if (strcmp(cmd, "TOOL_ASPIRATE") == 0) {
     handleToolAspirateDirect();
   }
@@ -202,7 +292,7 @@ void processDirectJsonLine(String line) {
 // ---------------------------------------------------------
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(SERIAL_BAUD);
   Serial.setTimeout(100);
 
   initializeActuators();
@@ -211,6 +301,9 @@ void setup() {
 
   robotHomed = true;
   robotState = "IDLE";
+  currentS2Deg = 45;
+  currentS3Deg = 90;
+  currentToolDeg = 0;
 
   directSendStatus("HOMED", "DIRECT FIRMWARE READY");
 }
