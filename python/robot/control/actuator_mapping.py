@@ -20,8 +20,8 @@ class ActuatorMapper:
     Mapper para:
 
     J1: MG996R continuo + tornillo 2 mm/rev
-    J2: MG996R 180 deg, con limite cinemático actual [-30 deg, 30 deg]
-    J3: MG996R 180 deg, relacion 1:1, con q3 cinemático [-45 deg, 45 deg]
+    J2: MG996R 180 deg, con limite cinematico actual [-30 deg, 30 deg]
+    J3: MG996R 180 deg, relacion 1:1, con q3 cinematico [-45 deg, 45 deg]
     """
 
     def __init__(
@@ -39,11 +39,11 @@ class ActuatorMapper:
         z_max_m: Optional[float] = None,
 
         # J2:
-        # La prueba fisica mostro que el eje Y estaba espejado.
-        # Se corrige invirtiendo la direccion del actuador q2, sin mover el layout.
+        # q2 = 0 deg -> servo = 45 deg
+        # q2 positivo aumenta el angulo enviado al servo.
         q2_servo_at_zero_deg: float = 45.0,
         q2_ratio: float = 1.0,
-        q2_direction: float = -1.0,
+        q2_direction: float = 1.0,
 
         # J3:
         # Servo 180 deg con relacion 1:1.
@@ -127,17 +127,17 @@ class ActuatorMapper:
     def _validate_d1(self, d1_m: float):
         if self.z_min_m is not None and d1_m < self.z_min_m:
             raise ValueError(
-                f"d1={d1_m:.4f} m está por debajo del mínimo {self.z_min_m:.4f} m."
+                f"d1={d1_m:.4f} m esta por debajo del minimo {self.z_min_m:.4f} m."
             )
 
         if self.z_max_m is not None and d1_m > self.z_max_m:
             raise ValueError(
-                f"d1={d1_m:.4f} m está por encima del máximo {self.z_max_m:.4f} m."
+                f"d1={d1_m:.4f} m esta por encima del maximo {self.z_max_m:.4f} m."
             )
 
     def _validate_servo(self, name: str, angle_deg: float):
         if angle_deg < self.servo_min_deg or angle_deg > self.servo_max_deg:
             raise ValueError(
-                f"{name}={angle_deg:.2f}° fuera de rango "
-                f"[{self.servo_min_deg}, {self.servo_max_deg}]°."
+                f"{name}={angle_deg:.2f} deg fuera de rango "
+                f"[{self.servo_min_deg}, {self.servo_max_deg}] deg."
             )
