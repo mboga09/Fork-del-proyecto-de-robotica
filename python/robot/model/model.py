@@ -5,17 +5,16 @@ from roboticstoolbox import RevoluteMDH
 from roboticstoolbox import PrismaticMDH
 from spatialmath import SE3
 
+
 class ScaraPRR(DHRobot):
     def __init__(self):
         L2 = 0.150
         L3 = 0.150
 
         links = [
-            # Eje Z sin limite finito por software: los finales de carrera
-            # fisicos protegen el recorrido real.
             PrismaticMDH(theta=0, a=0, alpha=0, qlim=[-np.inf, np.inf]),
             RevoluteMDH(d=0, a=0, alpha=0, qlim=[-np.pi / 6, np.pi / 6]),
-            RevoluteMDH(d=0, a=L2, alpha=0, offset=np.pi / 4, qlim=[-np.pi / 4, np.pi / 4]),
+            RevoluteMDH(d=0, a=L2, alpha=0, qlim=[-np.pi / 4, np.pi / 4]),
         ]
 
         super().__init__(links, name="SCARA_PRR")
