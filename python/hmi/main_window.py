@@ -14,6 +14,7 @@ from hmi.widgets.operation_panel import OperationPanel
 from hmi.widgets.well_selector import WellSelector
 from hmi.widgets.status_panel import StatusPanel
 from hmi.widgets.manual_z_panel import ManualZPanel
+from hmi.widgets.raw_serial_panel import RawSerialPanel
 
 from hmi.controllers.robot_process_controller import RobotProcessController
 
@@ -34,11 +35,15 @@ class MainWindow(QMainWindow):
         self.connection_panel = ConnectionPanel(serial_config=serial_config)
         self.homing_panel = HomingPanel()
         self.manual_z_panel = ManualZPanel()
+        self.raw_serial_panel = RawSerialPanel()
         self.operation_panel = OperationPanel()
         self.well_selector = WellSelector(plate_config=plate_config)
         self.status_panel = StatusPanel()
 
         self.robot_controller = RobotProcessController()
+        self._serial_connected = False
+
+        self.raw_serial_panel.set_enabled(False)
 
         self._build_ui()
         self._connect_signals()
@@ -61,6 +66,7 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(title)
         main_layout.addLayout(top_layout)
+        main_layout.addWidget(self.raw_serial_panel)
         main_layout.addLayout(middle_layout)
         main_layout.addWidget(self.status_panel)
 
@@ -76,6 +82,7 @@ class MainWindow(QMainWindow):
         self.homing_panel.estop_requested.connect(self.robot_controller.estop)
 
         self.manual_z_panel.z_jog_requested.connect(self.robot_controller.manual_z_jog)
+        self.raw_serial_panel.command_requested.connect(self._on_raw_serial_command_requested)
 
         self.operation_panel.start_requested.connect(self._on_start_requested)
         self.well_selector.well_selection_changed.connect(self._on_well_selection_changed)
@@ -122,11 +129,17 @@ class MainWindow(QMainWindow):
         else:
             self.status_panel.log_message(f"Wells seleccionados: {wells}")
 
+    def _on_raw_serial_command_requested(self, command_text: str) -> None:
+        self.robot_controller.send_raw_serial_command(command_text)
+
     # ---------------------------------------------------------
     # Robot controller callbacks
     # ---------------------------------------------------------
 
     def _on_connection_changed(self, connected: bool) -> None:
+        self._serial_connected = connected
+        self.raw_serial_panel.set_enabled(connected and not self.robot_controller.is_running)
+
         if connected:
             self.connection_panel.status_label.setText("Status: Connected")
         else:
@@ -141,3 +154,4 @@ class MainWindow(QMainWindow):
         self.homing_panel.state_label.setText("State: Running" if running else "State: Idle")
         self.operation_panel.start_button.setEnabled(not running)
         self.manual_z_panel.set_enabled(not running)
+        self.raw_serial_panel.set_enabled(self._serial_connected and not running)
