@@ -20,25 +20,19 @@ class RawSerialPanel(QGroupBox):
 
         self.command_input = QLineEdit()
         self.command_input.setPlaceholderText(
-            '{"cmd":"MOVE_SERVOS","s2_deg":45,"s3_deg":90}'
+            '{"cmd":"MOVE_ACT","z_dir":0,"z_time_s":0,"s2_deg":0,"s3_deg":180}'
         )
 
         self.preset_combo = QComboBox()
+        self.preset_combo.setMinimumContentsLength(12)
+        self.preset_combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         self.preset_combo.addItem("Custom", "")
         self.preset_combo.addItem("PING", '{"cmd":"PING"}')
-        self.preset_combo.addItem("Servo diag: ZERO", '{"cmd":"ZERO"}')
-        self.preset_combo.addItem("Servo diag: CENTER", '{"cmd":"CENTER"}')
+        self.preset_combo.addItem("HOME_Z", '{"cmd":"HOME_Z"}')
+        self.preset_combo.addItem("Route HOME", '{"cmd":"HOME"}')
         self.preset_combo.addItem(
-            "Servo diag: S2/S3 0 deg",
-            '{"cmd":"MOVE_SERVOS","s2_deg":0,"s3_deg":0}',
-        )
-        self.preset_combo.addItem(
-            "Servo diag: S2 45 / S3 90",
-            '{"cmd":"MOVE_SERVOS","s2_deg":45,"s3_deg":90}',
-        )
-        self.preset_combo.addItem(
-            "Main FW: MOVE_ACT 0 deg",
-            '{"cmd":"MOVE_ACT","z_dir":0,"z_time_s":0,"s2_deg":0,"s3_deg":0}',
+            "MOVE_ACT home",
+            '{"cmd":"MOVE_ACT","z_dir":0,"z_time_s":0,"s2_deg":0,"s3_deg":180}',
         )
 
         self.send_button = QPushButton("Send")
@@ -52,17 +46,20 @@ class RawSerialPanel(QGroupBox):
         input_layout = QHBoxLayout()
         button_layout = QHBoxLayout()
 
+        safety_label = QLabel("Sends one JSON object per line. Use only while the robot is in a safe state.")
+        safety_label.setWordWrap(True)
+
         input_layout.addWidget(QLabel("JSON:"))
-        input_layout.addWidget(self.command_input)
+        input_layout.addWidget(self.command_input, stretch=1)
 
         button_layout.addWidget(QLabel("Preset:"))
-        button_layout.addWidget(self.preset_combo)
+        button_layout.addWidget(self.preset_combo, stretch=1)
         button_layout.addWidget(self.send_button)
         button_layout.addWidget(self.clear_button)
 
         layout.addLayout(input_layout)
         layout.addLayout(button_layout)
-        layout.addWidget(QLabel("Sends one JSON object per line. Use only while the robot is in a safe state."))
+        layout.addWidget(safety_label)
 
         self.setLayout(layout)
 
