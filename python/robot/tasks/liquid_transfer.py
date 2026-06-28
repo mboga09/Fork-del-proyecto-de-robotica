@@ -1,5 +1,4 @@
 import numpy as np
-from spatialmath import SE3
 
 from robot.debug.plot_diagnostics import generate_transfer_debug_plots
 
@@ -43,16 +42,11 @@ class LiquidTransferTask:
         source_pose = self.layout.source_pose_for_transfer(transfer_index)
         target_pose = self.layout.well_pose(well_id)
 
-        q_source_approach = self._solve_ik(
-            pose=self._approach_pose(source_pose),
-            q_seed=self.layout.source_approach_q(),
-            label=f"source approach {transfer_index}",
-        )
-        q_target_approach = self._solve_ik(
-            pose=self._approach_pose(target_pose),
-            q_seed=self.layout.well_approach_q(well_id),
-            label=f"well {well_id} approach",
-        )
+        # Los puntos de approach son taught points del layout. Esto garantiza que
+        # HOME->INTRODUCIR_JERINGA y HOME->RACK usen las duraciones Z medidas,
+        # sin que IK/approach_height cambien la altura calibrada.
+        q_source_approach = self.layout.source_approach_q()
+        q_target_approach = self.layout.well_approach_q(well_id)
 
         self._emit(f"Source Z for pass {transfer_index + 1}: {float(source_pose.t[2]):.4f} m")
 
@@ -77,24 +71,6 @@ class LiquidTransferTask:
             elif segment.name == "well_down":
                 self._emit(f"Tool dispense at {well_id}.")
                 self.motion_sender.dispense()
-
-    def _approach_pose(self, pose):
-        return pose * SE3(0, 0, self.layout.approach_height_m())
-
-    def _solve_ik(self, pose, q_seed, label: str):
-        sol = self.executor.robot.ikine_LM(
-            pose,
-            q0=q_seed,
-            mask=[1, 1, 1, 0, 0, 0],
-            joint_limits=False,
-        )
-
-        if not sol.success:
-            raise RuntimeError(f"IK failed for {label}. Reason: {sol.reason}. Pose: {pose}")
-
-        q = np.asarray(sol.q, dtype=float)
-        self.executor._validate_joint_limits(q)
-        return q
 
     def _ensure_safe_position(self) -> None:
         q_safe = self.layout.q_safe()
