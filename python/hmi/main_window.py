@@ -77,6 +77,7 @@ class MainWindow(QMainWindow):
         self.connection_panel.connect_requested.connect(self._on_connect_requested)
         self.connection_panel.disconnect_requested.connect(self.robot_controller.disconnect_serial)
 
+        self.homing_panel.initial_home_requested.connect(self.robot_controller.initial_home)
         self.homing_panel.home_requested.connect(self.robot_controller.home)
         self.homing_panel.stop_requested.connect(self.robot_controller.stop)
         self.homing_panel.estop_requested.connect(self.robot_controller.estop)
@@ -107,9 +108,6 @@ class MainWindow(QMainWindow):
             wells = self.well_selector.get_all_wells()
 
         elif mode == "selected":
-            wells = self.well_selector.get_selected_wells()
-
-        elif mode == "route":
             wells = self.well_selector.get_route_wells()
 
         else:
@@ -120,14 +118,10 @@ class MainWindow(QMainWindow):
         self.robot_controller.start_transfer(wells)
 
     def _on_well_selection_changed(self, wells: list[str]) -> None:
-        mode = self.operation_panel.get_selected_mode()
-
-        if mode == "route":
-            self.status_panel.log_message(
-                f"Orden de ruta: {self.well_selector.get_route_wells()}"
-            )
-        else:
-            self.status_panel.log_message(f"Wells seleccionados: {wells}")
+        ordered_wells = self.well_selector.get_route_wells()
+        self.status_panel.log_message(
+            f"Wells seleccionados: {wells}. Orden de ruta: {ordered_wells}"
+        )
 
     def _on_raw_serial_command_requested(self, command_text: str) -> None:
         self.robot_controller.send_raw_serial_command(command_text)
@@ -144,11 +138,11 @@ class MainWindow(QMainWindow):
             self.connection_panel.status_label.setText("Status: Connected")
         else:
             self.connection_panel.status_label.setText("Status: Disconnected")
-            self.homing_panel.homed_label.setText("Homed: No")
+            self.homing_panel.homed_label.setText("Z Calibrated: No")
             self.homing_panel.state_label.setText("State: Disconnected")
 
     def _on_homed_changed(self, homed: bool) -> None:
-        self.homing_panel.homed_label.setText("Homed: Yes" if homed else "Homed: No")
+        self.homing_panel.homed_label.setText("Z Calibrated: Yes" if homed else "Z Calibrated: No")
 
     def _on_running_changed(self, running: bool) -> None:
         self.homing_panel.state_label.setText("State: Running" if running else "State: Idle")
