@@ -3,22 +3,23 @@ robot:
   linear_steps: 2
   approach_height_m: 0.038
 
-# Resultado virtual del homing inicial de Z: el eje baja hasta activar
-# el limit switch. Este punto calibra d1=0, pero NO es el home de ruta.
+# Calibracion Z por tiempo con z_speed_m_per_s = 0.0012:
+#   HOME desde limit switch: +35.0 s -> d1 = 0.0420 m
+#   INTRODUCIR_JERINGA desde HOME: -20.0 s -> d1 = 0.0180 m
+#   RACK desde HOME: -35.0 s -> d1 = 0.0000 m
+# El limit switch calibra d1=0 y tambien marca el punto de release/dispense.
 q_z_calibration:
-  d1: 0.000
+  d1: 0.0000
   theta2_deg: -90.000
   theta3_deg: 55.000
 
-# Home de ruta: punto alto/extremo usado entre trayectorias para
-# mantener calibracion y evitar colisiones.
 q_home:
-  d1: 0.1415
+  d1: 0.0420
   theta2_deg: -90.000
   theta3_deg: 55.000
 
 q_safe:
-  d1: 0.1415
+  d1: 0.0420
   theta2_deg: -90.000
   theta3_deg: 55.000
 
@@ -26,12 +27,12 @@ source:
   pose:
     x: 0.247938
     y: -0.050444
-    z: 0.200
+    z: -0.0035
 
   depth_step_m: 0.001
 
   approach_q:
-    d1: 0.2595
+    d1: 0.0420
     theta2_deg: -44.000
     theta3_deg: 65.000
 
@@ -40,9 +41,9 @@ wells:
     pose:
       x: -0.015369
       y: -0.021153
-      z: 0.022
+      z: -0.0215
     approach_q:
-      d1: 0.0815
+      d1: 0.0420
       theta2_deg: -41.000
       theta3_deg: 190.000
 
@@ -50,9 +51,9 @@ wells:
     pose:
       x: 0.000000
       y: 0.000000
-      z: 0.022
+      z: -0.0215
     approach_q:
-      d1: 0.0815
+      d1: 0.0420
       theta2_deg: 0.000
       theta3_deg: 180.000
 
@@ -60,9 +61,9 @@ wells:
     pose:
       x: -0.030789
       y: 0.035419
-      z: 0.022
+      z: -0.0215
     approach_q:
-      d1: 0.0815
+      d1: 0.0420
       theta2_deg: 50.000
       theta3_deg: 162.000
 
@@ -70,9 +71,9 @@ wells:
     pose:
       x: -0.044683
       y: -0.057191
-      z: 0.022
+      z: -0.0215
     approach_q:
-      d1: 0.0815
+      d1: 0.0420
       theta2_deg: -52.000
       theta3_deg: 208.000
 
@@ -80,9 +81,9 @@ wells:
     pose:
       x: -0.003072
       y: -0.039037
-      z: 0.022
+      z: -0.0215
     approach_q:
-      d1: 0.0815
+      d1: 0.0420
       theta2_deg: -12.000
       theta3_deg: 195.000
 
@@ -90,8 +91,8 @@ wells:
     pose:
       x: -0.001700
       y: 0.001991
-      z: 0.022
+      z: -0.0215
     approach_q:
-      d1: 0.0815
+      d1: 0.0420
       theta2_deg: 41.000
       theta3_deg: 179.000
