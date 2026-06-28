@@ -145,18 +145,12 @@ class RobotProcessController(QObject):
 
         q_home = self.layout.q_home()
 
-        self.status_changed.emit("Moviendo a Route Home elevado.")
+        self.status_changed.emit("Moviendo a Route Home: primero Z, luego J2/J3.")
         try:
-            if not np.allclose(self.executor.current_q, q_home, atol=1e-6):
-                segment = self.planner.move_joint(
-                    q_start=self.executor.current_q,
-                    q_goal=q_home,
-                    steps=self.layout.joint_steps(),
-                    name="route_home",
-                )
-                self.executor.execute_segment(segment)
-            else:
-                self.status_changed.emit("El robot ya esta en Route Home; aplicando hold de correccion.")
+            self._move_z_first_to_q(
+                q_goal=q_home,
+                base_name="route_home",
+            )
 
             self.status_changed.emit("Aplicando hold de Route Home en firmware.")
             self.motion_sender.home()
@@ -164,6 +158,53 @@ class RobotProcessController(QObject):
             self.status_changed.emit("Route Home alcanzado y sostenido.")
         except Exception as exc:
             self.status_changed.emit(f"Error moviendo a Route Home: {exc}")
+
+    def _move_z_first_to_q(self, q_goal, base_name: str) -> None:
+        """
+        Movimiento seguro hacia HOME/SAFE:
+            1. Subir solo Z hasta el d1 objetivo.
+            2. Con Z alto, mover J2/J3 hasta la configuracion objetivo.
+
+        Esto evita barrer el workspace con el brazo mientras la herramienta
+        todavia esta baja.
+        """
+
+        q_goal = np.asarray(q_goal, dtype=float)
+        q_current = np.asarray(self.executor.current_q, dtype=float).copy()
+        z_tolerance_m = 1e-6
+
+        if q_current[0] < q_goal[0] - z_tolerance_m:
+            q_raise = q_current.copy()
+            q_raise[0] = q_goal[0]
+            self.status_changed.emit(f"{base_name}: subiendo solo Z antes de mover J2/J3.")
+            z_segment = self.planner.move_joint(
+                q_start=q_current,
+                q_goal=q_raise,
+                steps=self.layout.linear_steps(),
+                name=f"{base_name}_raise_z_first",
+            )
+            self.executor.execute_segment(z_segment)
+            q_current = q_raise
+
+        elif q_current[0] > q_goal[0] + z_tolerance_m:
+            self.status_changed.emit(
+                f"{base_name}: Z actual esta por encima del Z objetivo; no bajo Z para evitar colision."
+            )
+            q_goal = q_goal.copy()
+            q_goal[0] = q_current[0]
+
+        if np.allclose(q_current, q_goal, atol=1e-6):
+            self.status_changed.emit(f"{base_name}: ya esta en configuracion objetivo.")
+            return
+
+        self.status_changed.emit(f"{base_name}: moviendo J2/J3 con Z alto.")
+        arm_segment = self.planner.move_joint(
+            q_start=q_current,
+            q_goal=q_goal,
+            steps=self.layout.joint_steps(),
+            name=f"{base_name}_arm_at_safe_z",
+        )
+        self.executor.execute_segment(arm_segment)
 
     def stop(self) -> None:
         if self.motion_sender is not None:
