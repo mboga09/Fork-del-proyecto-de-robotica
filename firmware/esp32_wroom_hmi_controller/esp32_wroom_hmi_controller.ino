@@ -28,6 +28,8 @@ static const int Q1_FORWARD_US = 2500;
 static const int Q1_REVERSE_US = 500;
 static const int HOME_SENSOR_ACTIVE_LEVEL = HIGH;
 
+static const uint32_t INITIAL_HOME_TIMEOUT_MS = 45000;
+
 static const float SERVO_MIN_DEG = 0.0f;
 static const float SERVO_MAX_DEG = 180.0f;
 static const float MAX_Z_TIME_S = 120.0f;
@@ -214,9 +216,56 @@ void publishPosition(const char* name) {
   queueRaw(out);
 }
 
+void executeInitialHome() {
+  if (estopRequested) {
+    enterEStop();
+    return;
+  }
+
+  motionBusy = true;
+  robotArmed = false;
+  stopRequested = false;
+
+  currentS2 = HOME_S2_DEG;
+  currentS3 = HOME_S3_DEG;
+  currentTool = TOOL_HOME_DEG;
+  safeOutputs();
+
+  queueStatus("HOMING", "HOMING", "Initial Z homing started");
+
+  uint32_t startMs = millis();
+  if (!q1HomeSensorActive()) {
+    setQ1(-1);
+  }
+
+  while (!q1HomeSensorActive()) {
+    if (stopRequested || estopRequested) {
+      stopQ1();
+      motionBusy = false;
+      queueStatus(estopRequested ? "ESTOPPED" : "STOPPED", estopRequested ? "ESTOPPED" : "STOPPED", "Initial Z homing interrupted");
+      return;
+    }
+
+    if (millis() - startMs >= INITIAL_HOME_TIMEOUT_MS) {
+      stopQ1();
+      motionBusy = false;
+      queueStatus("ERROR", "IDLE", "Initial Z homing timeout before limit switch");
+      return;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+
+  stopQ1();
+  motionBusy = false;
+  robotArmed = true;
+  publishPosition("INITIAL_Z_HOME");
+  queueStatus("Z_HOMED", "IDLE", "Initial Z homing complete; d1 calibrated at limit switch");
+}
+
 void executeMove(const RobotCommand& command) {
   if (!robotArmed) {
-    queueStatus("ERROR", "IDLE", "MOVE_ACT rejected: HOME required");
+    queueStatus("ERROR", "IDLE", "MOVE_ACT rejected: Initial Z Homing required");
     return;
   }
   if (estopRequested) {
@@ -231,20 +280,23 @@ void executeMove(const RobotCommand& command) {
     queueStatus("ERROR", "IDLE", "MOVE_ACT rejected: unsafe z_time_s");
     return;
   }
-  if (q1HomeSensorActive() && command.zDir < 0) {
-    stopQ1();
-    queueStatus("IDLE", "IDLE", "Q1 home sensor active; negative Z command ignored");
-    return;
-  }
 
   motionBusy = true;
   stopRequested = false;
+
+  int effectiveZDir = command.zDir;
+  if (q1HomeSensorActive() && effectiveZDir < 0) {
+    effectiveZDir = 0;
+    stopQ1();
+    queueStatus("Z_LIMIT", "MOVING", "Q1 limit switch active; negative Z overwritten to 0");
+  }
+
   queueStatus("MOVING", "MOVING", command.name);
 
   uint32_t startMs = millis();
   uint32_t zDurationMs = (uint32_t)(command.zTimeS * 1000.0f);
-  bool zActive = command.zDir != 0 && zDurationMs > 0;
-  setQ1(zActive ? command.zDir : 0);
+  bool zActive = effectiveZDir != 0 && zDurationMs > 0;
+  setQ1(zActive ? effectiveZDir : 0);
 
   TickType_t lastWake = xTaskGetTickCount();
   while (true) {
@@ -260,13 +312,11 @@ void executeMove(const RobotCommand& command) {
     writeServoAngle(CH_Q2, currentS2);
     writeServoAngle(CH_Q3, currentS3);
 
-    if (zActive && command.zDir < 0 && q1HomeSensorActive()) {
+    if (zActive && effectiveZDir < 0 && q1HomeSensorActive()) {
       zActive = false;
+      effectiveZDir = 0;
       stopQ1();
-      motionBusy = false;
-      publishPosition(command.name);
-      queueStatus("IDLE", "IDLE", "Q1 home sensor reached; Z stopped");
-      return;
+      queueStatus("Z_LIMIT", "MOVING", "Q1 limit switch reached; Z overwritten to 0");
     }
 
     if (zActive && millis() - startMs >= zDurationMs) {
@@ -287,7 +337,7 @@ void executeMove(const RobotCommand& command) {
 
 void executeTool(const char* name, float targetDeg) {
   if (!robotArmed) {
-    queueStatus("ERROR", "IDLE", "Tool rejected: HOME required");
+    queueStatus("ERROR", "IDLE", "Tool rejected: Initial Z Homing required");
     return;
   }
   if (!validateAngle(targetDeg)) {
@@ -317,7 +367,7 @@ void executeTool(const char* name, float targetDeg) {
   queueStatus("IDLE", "IDLE", "Tool completed");
 }
 
-void handleHome() {
+void handleRouteHome() {
   estopRequested = false;
   stopRequested = false;
   robotArmed = true;
@@ -328,11 +378,7 @@ void handleHome() {
   currentTool = TOOL_HOME_DEG;
   safeOutputs();
 
-  if (q1HomeSensorActive()) {
-    queueStatus("HOMED", "IDLE", "Q1 home sensor active; S2/S3 set to HOME");
-  } else {
-    queueStatus("HOMED", "IDLE", "Controller armed; S2/S3 set to HOME; Q1 home sensor is not active");
-  }
+  queueStatus("HOMED", "IDLE", "Route home armed; Z position unchanged");
 }
 
 void motionTask(void* parameter) {
@@ -341,8 +387,10 @@ void motionTask(void* parameter) {
     if (xQueueReceive(commandQueue, &command, pdMS_TO_TICKS(20)) == pdTRUE) {
       if (strcmp(command.cmd, "PING") == 0) {
         queueStatus("READY", "IDLE", "ESP32 HMI controller alive");
+      } else if (strcmp(command.cmd, "HOME_Z") == 0 || strcmp(command.cmd, "INITIAL_HOME") == 0) {
+        executeInitialHome();
       } else if (strcmp(command.cmd, "HOME") == 0 || strcmp(command.cmd, "ARM_TEST") == 0) {
-        handleHome();
+        handleRouteHome();
       } else if (strcmp(command.cmd, "MOVE_ACT") == 0) {
         executeMove(command);
       } else if (strcmp(command.cmd, "TOOL_ASPIRATE") == 0) {
