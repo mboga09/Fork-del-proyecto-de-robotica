@@ -20,11 +20,12 @@ static const uint8_t CH_TOOL = 3;
 
 static const int Q1_STOP_US = 1500;
 
-// Max symmetric pulses around stop for the continuous Z servo.
-// This keeps the commanded effort consistent in both directions.
+// Extended symmetric pulses around stop for the continuous Z servo.
+// These are intentionally beyond the common 1000-2000 us servo range.
+// The usToDuty() helper clamps pulses to the ESP32 output range [500, 2500].
 // Gravity/friction compensation stays in Python via directional Z speeds.
-static const int Q1_FORWARD_US = 2000;
-static const int Q1_REVERSE_US = 1000;
+static const int Q1_FORWARD_US = 2500;
+static const int Q1_REVERSE_US = 500;
 static const int HOME_SENSOR_ACTIVE_LEVEL = HIGH;
 
 static const float SERVO_MIN_DEG = 0.0f;
