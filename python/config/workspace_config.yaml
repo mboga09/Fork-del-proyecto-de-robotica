@@ -31,7 +31,6 @@ source:
   #   r = sqrt(0.244^2 + (-0.157)^2) = 0.290 m
   #   elbow-down approx: theta2=-18.034 deg, theta3=-29.451 deg
   #   elbow-up approx:   theta2=-47.484 deg, theta3=29.451 deg
-  # Elbow-down is inside the current joint limits, so approach_q is updated.
   pose:
     x: 0.244
     y: -0.157
@@ -47,68 +46,68 @@ source:
     theta3_deg: -29.451
 
 wells:
-  # Rack 2x3 corrected with B1 as reference:
-  #   B1 = (0.168 m, 0.099203 m)
-  #   Row A is +0.039 m in X from row B.
-  #   Columns 2 and 3 are -0.039 m and -0.078 m in Y from column 1.
-  # Approach q values are analytic IK seeds using the positive-q3 branch.
-  # Note: with current q3 limit +/-45 deg, these rack points remain outside limits.
+  # Teach-point calibration from direct MOVE_ACT commands.
+  # Current actuator mapper:
+  #   theta2_deg = servo2_deg - 90
+  #   theta3_deg = 135 - servo3_deg
+  # The x/y poses below are FK results using L2=L3=0.150 m.
+  # The z pose remains the deposit height, and approach_q uses z + 0.038 m.
   A1:
     pose:
-      x: 0.207000
-      y: 0.099203
+      x: 0.212132
+      y: 0.000000
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -14.474
-      theta3_deg: 80.160
+      theta2_deg: -45.000
+      theta3_deg: 90.000
 
   A2:
     pose:
-      x: 0.207000
-      y: 0.060203
+      x: 0.181187
+      y: 0.146722
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -27.846
-      theta3_deg: 88.124
+      theta2_deg: 0.000
+      theta3_deg: 78.000
 
   A3:
     pose:
-      x: 0.207000
-      y: 0.021203
+      x: 0.066011
+      y: 0.255247
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -40.235
-      theta3_deg: 92.167
+      theta2_deg: 47.000
+      theta3_deg: 57.000
 
   B1:
     pose:
-      x: 0.168000
-      y: 0.099203
+      x: 0.172047
+      y: -0.003003
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -18.871
-      theta3_deg: 98.865
+      theta2_deg: -56.000
+      theta3_deg: 110.000
 
   B2:
     pose:
-      x: 0.168000
-      y: 0.060203
+      x: 0.162401
+      y: 0.117992
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -33.781
-      theta3_deg: 106.993
+      theta2_deg: -12.000
+      theta3_deg: 96.000
 
   B3:
     pose:
-      x: 0.168000
-      y: 0.021203
+      x: 0.059480
+      y: 0.221983
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -48.443
-      theta3_deg: 111.273
+      theta2_deg: 35.000
+      theta3_deg: 80.000
