@@ -74,20 +74,46 @@ class LiquidTransferTask:
 
     def _ensure_safe_position(self) -> None:
         q_safe = self.layout.q_safe()
+        q_current = np.asarray(self.executor.current_q, dtype=float).copy()
+        z_tolerance_m = 1e-6
 
-        if np.allclose(self.executor.current_q, q_safe, atol=1e-6):
+        if np.allclose(q_current, q_safe, atol=1e-6):
             return
 
-        self._emit("Moving to safe position.")
+        self._emit("Moving to safe position: first raise Z, then move J2/J3.")
 
-        segment = self.planner.move_joint(
-            q_start=self.executor.current_q,
+        if q_current[0] < q_safe[0] - z_tolerance_m:
+            q_raise = q_current.copy()
+            q_raise[0] = q_safe[0]
+            self._emit("current_to_safe: raising Z only before arm motion.")
+            z_segment = self.planner.move_joint(
+                q_start=q_current,
+                q_goal=q_raise,
+                steps=self.layout.linear_steps(),
+                name="current_to_safe_raise_z_first",
+            )
+            self.executor.execute_segment(z_segment)
+            q_current = q_raise
+
+        elif q_current[0] > q_safe[0] + z_tolerance_m:
+            self._emit(
+                "current_to_safe: Z actual esta por encima del Z seguro; no bajo Z para evitar colision."
+            )
+            q_safe = q_safe.copy()
+            q_safe[0] = q_current[0]
+
+        if np.allclose(q_current, q_safe, atol=1e-6):
+            return
+
+        self._emit("current_to_safe: moving J2/J3 with Z already high.")
+        arm_segment = self.planner.move_joint(
+            q_start=q_current,
             q_goal=q_safe,
             steps=self.layout.joint_steps(),
-            name="current_to_safe",
+            name="current_to_safe_arm_at_safe_z",
         )
 
-        self.executor.execute_segment(segment)
+        self.executor.execute_segment(arm_segment)
 
     def _emit(self, message: str) -> None:
         if self.status_callback is not None:
