@@ -19,8 +19,12 @@ static const uint8_t CH_Q3 = 2;
 static const uint8_t CH_TOOL = 3;
 
 static const int Q1_STOP_US = 1500;
-static const int Q1_FORWARD_US = 1700;
-static const int Q1_REVERSE_US = 1300;
+
+// Max symmetric pulses around stop for the continuous Z servo.
+// This keeps the commanded effort consistent in both directions.
+// Gravity/friction compensation stays in Python via directional Z speeds.
+static const int Q1_FORWARD_US = 2000;
+static const int Q1_REVERSE_US = 1000;
 static const int HOME_SENSOR_ACTIVE_LEVEL = HIGH;
 
 static const float SERVO_MIN_DEG = 0.0f;
@@ -36,6 +40,9 @@ static const float TOOL_HOME_DEG = 0.0f;
 static const float TOOL_ASPIRATE_DEG = 180.0f;
 static const float TOOL_DISPENSE_DEG = 0.0f;
 
+static const float HOME_S2_DEG = 0.0f;
+static const float HOME_S3_DEG = 180.0f;
+
 static QueueHandle_t commandQueue;
 static QueueHandle_t logQueue;
 
@@ -44,8 +51,8 @@ static volatile bool motionBusy = false;
 static volatile bool stopRequested = false;
 static volatile bool estopRequested = false;
 
-static float currentS2 = 45.0f;
-static float currentS3 = 90.0f;
+static float currentS2 = HOME_S2_DEG;
+static float currentS3 = HOME_S3_DEG;
 static float currentTool = TOOL_HOME_DEG;
 
 struct RobotCommand {
@@ -314,12 +321,16 @@ void handleHome() {
   stopRequested = false;
   robotArmed = true;
   motionBusy = false;
+
+  currentS2 = HOME_S2_DEG;
+  currentS3 = HOME_S3_DEG;
+  currentTool = TOOL_HOME_DEG;
   safeOutputs();
 
   if (q1HomeSensorActive()) {
-    queueStatus("HOMED", "IDLE", "Q1 home sensor active; position set to home");
+    queueStatus("HOMED", "IDLE", "Q1 home sensor active; S2/S3 set to HOME");
   } else {
-    queueStatus("HOMED", "IDLE", "Controller armed; Q1 home sensor is not active");
+    queueStatus("HOMED", "IDLE", "Controller armed; S2/S3 set to HOME; Q1 home sensor is not active");
   }
 }
 
