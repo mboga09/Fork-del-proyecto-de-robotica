@@ -40,22 +40,26 @@
 #endif
 
 // ---------------------------------------------------------
-// Calibración MG996R continuo para eje Z
+// Calibracion MG996R continuo para eje Z
 // ---------------------------------------------------------
 
 #define Z_STOP_US 1500
-#define Z_UP_US   1700
-#define Z_DOWN_US 1300
+
+// Pulsos maximos simetricos alrededor del stop para mantener esfuerzo
+// consistente en ambas direcciones. La compensacion por gravedad/friccion
+// se hace en Python con z_up_speed_m_per_s y z_down_speed_m_per_s.
+#define Z_UP_US   2000
+#define Z_DOWN_US 1000
 
 #define SERVO_SETTLE_MS 150
 
 // ---------------------------------------------------------
-// Calibración herramienta 28BYJ-48
+// Calibracion herramienta 28BYJ-48
 // ---------------------------------------------------------
 //
 // 28BYJ-48 con ULN2003 usando secuencia half-step.
 // Usualmente:
-//   4096 half-steps ≈ 1 vuelta del eje de salida.
+//   4096 half-steps aprox 1 vuelta del eje de salida.
 //
 // TOOL_VOLUME_STEPS debe calibrarse experimentalmente para 1 ml.
 //
@@ -111,7 +115,7 @@ static void releaseToolStepper() {
 }
 
 // ---------------------------------------------------------
-// Inicialización
+// Inicializacion
 // ---------------------------------------------------------
 
 void initializeActuators() {
