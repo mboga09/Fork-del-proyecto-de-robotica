@@ -22,9 +22,9 @@ class JsonMotionSender:
     Adapta los comandos generados por MotionExecutor al protocolo JSON.
 
     En modo diagnóstico para ESP32 WROOM, cada comando de movimiento se envía
-    y luego se espera explícitamente a que el firmware responda ACK y un estado
-    terminal. Esto evita que Python sobreescriba acciones o sature el firmware
-    enviando el siguiente punto antes de que el ESP32 reporte que terminó.
+    y luego se espera explícitamente a que el firmware responda ACK, estado de
+    inicio y estado terminal. Esto evita que Python use un IDLE atrasado de la
+    acción anterior como si fuera la respuesta del comando recién enviado.
     """
 
     def __init__(
@@ -33,6 +33,7 @@ class JsonMotionSender:
         ack_timeout_s: float = 5.0,
         motion_timeout_s: float = 30.0,
         motion_timeout_margin_s: float = 10.0,
+        start_timeout_s: float = 10.0,
     ):
         if not hasattr(serial_controller, "send_command"):
             raise TypeError(
@@ -43,6 +44,7 @@ class JsonMotionSender:
         self.ack_timeout_s = ack_timeout_s
         self.motion_timeout_s = motion_timeout_s
         self.motion_timeout_margin_s = motion_timeout_margin_s
+        self.start_timeout_s = start_timeout_s
 
     # ---------------------------------------------------------
     # Helpers de envío con espera
@@ -53,15 +55,29 @@ class JsonMotionSender:
         command: dict,
         terminal_statuses: Iterable[str],
         timeout_s: float | None = None,
+        start_statuses: Iterable[str] | None = ("MOVING", "HOMING"),
     ) -> dict:
         cmd = str(command.get("cmd", ""))
         timeout = self.motion_timeout_s if timeout_s is None else timeout_s
+
+        if hasattr(self.serial, "mark_wait_cursor_at_end"):
+            self.serial.mark_wait_cursor_at_end()
 
         self.serial.send_command(command)
 
         ack = self.serial.wait_for_ack(cmd, timeout_s=self.ack_timeout_s)
         if ack is None:
             raise TimeoutError(f"Timeout esperando ACK para {cmd}.")
+
+        if start_statuses is not None:
+            started = self.serial.wait_for_status(
+                set(start_statuses),
+                timeout_s=self.start_timeout_s,
+            )
+            if started is None:
+                raise TimeoutError(
+                    f"Timeout esperando inicio {list(start_statuses)} para {cmd}."
+                )
 
         status = self.serial.wait_for_status(
             set(terminal_statuses),
@@ -100,6 +116,7 @@ class JsonMotionSender:
             command,
             terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"),
             timeout_s=timeout_s,
+            start_statuses=("MOVING",),
         )
 
     def move_act(
@@ -125,6 +142,7 @@ class JsonMotionSender:
             command,
             terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"),
             timeout_s=timeout_s,
+            start_statuses=("MOVING",),
         )
 
     def move_z_jog(self, z_dir: int, z_time_s: float) -> None:
@@ -156,6 +174,7 @@ class JsonMotionSender:
             command,
             terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"),
             timeout_s=timeout_s,
+            start_statuses=("MOVING",),
         )
 
     # ---------------------------------------------------------
@@ -167,6 +186,7 @@ class JsonMotionSender:
             make_initial_home_command(),
             terminal_statuses=("Z_HOMED",),
             timeout_s=60.0,
+            start_statuses=("HOMING",),
         )
 
     def home(self) -> None:
@@ -174,6 +194,7 @@ class JsonMotionSender:
             make_home_command(),
             terminal_statuses=("HOMED",),
             timeout_s=10.0,
+            start_statuses=("MOVING",),
         )
 
     def stop(self, wait: bool = True) -> None:
@@ -187,6 +208,7 @@ class JsonMotionSender:
             command,
             terminal_statuses=("STOPPED",),
             timeout_s=5.0,
+            start_statuses=None,
         )
 
     def estop(self, wait: bool = True) -> None:
@@ -200,6 +222,7 @@ class JsonMotionSender:
             command,
             terminal_statuses=("ESTOPPED",),
             timeout_s=5.0,
+            start_statuses=None,
         )
 
     # ---------------------------------------------------------
@@ -210,10 +233,12 @@ class JsonMotionSender:
         self._send_and_wait(
             make_tool_aspirate_command(),
             terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"),
+            start_statuses=("MOVING",),
         )
 
     def dispense(self) -> None:
         self._send_and_wait(
             make_tool_dispense_command(),
             terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"),
+            start_statuses=("MOVING",),
         )
