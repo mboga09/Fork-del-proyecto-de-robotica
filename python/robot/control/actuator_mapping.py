@@ -20,8 +20,12 @@ class ActuatorMapper:
     Mapper para convertir el espacio articular q=[d1, theta2, theta3]
     al espacio de actuadores [z, servo2, servo3].
 
-    Calibracion de home:
-        q=[0, 0, 0] -> z sin movimiento, servo2=90 deg, servo3=135 deg.
+    Calibracion de home extrema izquierda:
+        q=[0, -30 deg, 55 deg] -> z sin movimiento, servo2=0 deg, servo3=180 deg.
+
+    Conversion inversa para teach points:
+        theta2_deg = servo2_deg - 30
+        theta3_deg = 235 - servo3_deg
     """
 
     def __init__(
@@ -39,9 +43,10 @@ class ActuatorMapper:
         z_max_m: Optional[float] = None,
 
         # J2:
-        # q2 = 0 deg -> servo2 = 90 deg.
+        # q2 = -30 deg -> servo2 = 0 deg.
+        # q2 =   0 deg -> servo2 = 30 deg.
         # q2 positivo aumenta el angulo enviado al servo.
-        q2_servo_at_zero_deg: float = 90.0,
+        q2_servo_at_zero_deg: float = 30.0,
         q2_ratio: float = 1.0,
         q2_direction: float = 1.0,
 
@@ -50,8 +55,8 @@ class ActuatorMapper:
         #   q3_logico = q3_servo_at_zero_deg + q3_ratio * theta3_deg
         # Luego, como el servo esta montado al reves, se invierte la senal:
         #   servo3 = 180 - q3_logico
-        # Para q3 = 0 deg, q3_logico = 45 deg y servo3 = 135 deg.
-        q3_servo_at_zero_deg: float = 45.0,
+        # Para q3 = 55 deg, q3_logico = 0 deg y servo3 = 180 deg.
+        q3_servo_at_zero_deg: float = -55.0,
         q3_ratio: float = 1.0,
         q3_direction: float = 1.0,
 
