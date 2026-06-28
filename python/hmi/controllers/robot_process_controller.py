@@ -121,13 +121,13 @@ class RobotProcessController(QObject):
             self.status_changed.emit("No se puede hacer homing inicial mientras corre una tarea.")
             return
 
-        self.status_changed.emit("Enviando homing inicial de Z.")
+        self.status_changed.emit("Enviando homing inicial solo de Z.")
         try:
             self.motion_sender.initial_home()
-            self.executor.set_current_q(self.layout.q_z_calibration())
+            self._set_current_z_calibration_only()
             self.is_homed = True
             self.homed_changed.emit(True)
-            self.status_changed.emit("Homing inicial completo. current_q reiniciado a q_z_calibration.")
+            self.status_changed.emit("Homing inicial completo. Solo d1 fue reiniciado a q_z_calibration.")
         except Exception as exc:
             self.is_homed = False
             self.homed_changed.emit(False)
@@ -290,9 +290,9 @@ class RobotProcessController(QObject):
         homed = bool(message.get("homed", False))
         if status == "Z_HOMED":
             self.is_homed = True
-            self.executor.set_current_q(self.layout.q_z_calibration())
+            self._set_current_z_calibration_only()
             self.homed_changed.emit(True)
-            self.status_changed.emit("Z calibrado. current_q reiniciado a q_z_calibration.")
+            self.status_changed.emit("Z calibrado. Solo d1 fue reiniciado a q_z_calibration.")
             return
         if status == "HOMED":
             self.executor.set_current_q(self.layout.q_home())
@@ -315,6 +315,11 @@ class RobotProcessController(QObject):
             self.homed_changed.emit(False)
             self.running_changed.emit(False)
             return
+
+    def _set_current_z_calibration_only(self) -> None:
+        q_current = np.asarray(self.executor.current_q, dtype=float).copy()
+        q_current[0] = float(self.layout.q_z_calibration()[0])
+        self.executor.set_current_q(q_current)
 
     def _on_serial_error(self, message: str) -> None:
         self.status_changed.emit(f"Serial error: {message}")
