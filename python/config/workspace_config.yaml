@@ -10,104 +10,116 @@ robot:
   #   approach_height_m = 0.060 - 0.022 = 0.038 m
   approach_height_m: 0.038
 
+# Nuevo home extremo izquierdo:
+#   actuator HOME = servo2 0 deg, servo3 180 deg
+#   mapper inverse: theta2 = servo2 - 30, theta3 = 235 - servo3
+#   q_home = [d1=0, theta2=-30 deg, theta3=55 deg]
 q_home:
   d1: 0.000
-  theta2_deg: 0.0
-  theta3_deg: 0.0
+  theta2_deg: -30.000
+  theta3_deg: 55.000
 
+# Home rotacional a altura segura.
+# El algoritmo de transferencia usa esta configuracion como punto intermedio:
+#   HOME -> TUBO -> HOME -> WELL -> HOME
 # TCP a z aprox. 0.120 m:
-# z_tcp = base_z + d1 - 0.024
-# 0.120 = 0.0025 + d1 - 0.024
-# d1 = 0.1415
+#   z_tcp = base_z + d1 - 0.024
+#   0.120 = 0.0025 + d1 - 0.024
+#   d1 = 0.1415
 q_safe:
   d1: 0.1415
-  theta2_deg: 0.0
-  theta3_deg: 0.0
+  theta2_deg: -30.000
+  theta3_deg: 55.000
 
 source:
-  # Source mirrored across X axis, moved -0.030 m in X, +0.050 m in Y,
-  # then +0.100 m in X.
-  # Reachability check with L2=L3=0.150 m and q3 offset removed:
-  #   r = sqrt(0.244^2 + (-0.157)^2) = 0.290 m
-  #   elbow-down approx: theta2=-18.034 deg, theta3=-29.451 deg
-  #   elbow-up approx:   theta2=-47.484 deg, theta3=29.451 deg
+  # TUBO teach point from direct MOVE_ACT:
+  #   servo2=46 deg, servo3=170 deg
+  #   theta2=16 deg, theta3=65 deg
+  # FK result with L2=L3=0.150 m:
+  #   x=0.167654 m, y=0.189499 m
   pose:
-    x: 0.244
-    y: -0.157
+    x: 0.167654
+    y: 0.189499
     z: 0.200
 
   # Cada toma baja 1 mm adicional porque el nivel del liquido se reduce.
   depth_step_m: 0.001
 
-  # Valid elbow-down IK seed for the source approach pose.
+  # Approach q for TUBO at z + approach_height_m.
   approach_q:
     d1: 0.2595
-    theta2_deg: -18.034
-    theta3_deg: -29.451
+    theta2_deg: 16.000
+    theta3_deg: 65.000
 
 wells:
-  # Teach-point calibration from direct MOVE_ACT commands.
-  # Current actuator mapper:
-  #   theta2_deg = servo2_deg - 90
-  #   theta3_deg = 135 - servo3_deg
+  # Teach-point calibration from direct MOVE_ACT commands after redefining HOME.
+  # Current actuator mapper inverse:
+  #   theta2_deg = servo2_deg - 30
+  #   theta3_deg = 235 - servo3_deg
   # The x/y poses below are FK results using L2=L3=0.150 m.
   # The z pose remains the deposit height, and approach_q uses z + 0.038 m.
   A1:
+    # servo2=49 deg, servo3=45 deg -> theta2=19 deg, theta3=190 deg
     pose:
-      x: 0.212132
+      x: 0.010635
+      y: -0.023886
+      z: 0.022
+    approach_q:
+      d1: 0.0815
+      theta2_deg: 19.000
+      theta3_deg: 190.000
+
+  A2:
+    # servo2=90 deg, servo3=55 deg -> theta2=60 deg, theta3=180 deg
+    pose:
+      x: 0.000000
       y: 0.000000
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -45.000
-      theta3_deg: 90.000
-
-  A2:
-    pose:
-      x: 0.181187
-      y: 0.146722
-      z: 0.022
-    approach_q:
-      d1: 0.0815
-      theta2_deg: 0.000
-      theta3_deg: 78.000
+      theta2_deg: 60.000
+      theta3_deg: 180.000
 
   A3:
+    # servo2=140 deg, servo3=73 deg -> theta2=110 deg, theta3=162 deg
     pose:
-      x: 0.066011
-      y: 0.255247
+      x: -0.046068
+      y: -0.008955
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: 47.000
-      theta3_deg: 57.000
+      theta2_deg: 110.000
+      theta3_deg: 162.000
 
   B1:
+    # servo2=38 deg, servo3=27 deg -> theta2=8 deg, theta3=208 deg
     pose:
-      x: 0.172047
-      y: -0.003003
+      x: 0.027188
+      y: -0.067292
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -56.000
-      theta3_deg: 110.000
+      theta2_deg: 8.000
+      theta3_deg: 208.000
 
   B2:
+    # servo2=78 deg, servo3=40 deg -> theta2=48 deg, theta3=195 deg
     pose:
-      x: 0.162401
-      y: 0.117992
+      x: 0.032271
+      y: -0.022179
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -12.000
-      theta3_deg: 96.000
+      theta2_deg: 48.000
+      theta3_deg: 195.000
 
   B3:
+    # servo2=131 deg, servo3=56 deg -> theta2=101 deg, theta3=179 deg
     pose:
-      x: 0.059480
-      y: 0.221983
+      x: -0.002574
+      y: -0.000477
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: 35.000
-      theta3_deg: 80.000
+      theta2_deg: 101.000
+      theta3_deg: 179.000
