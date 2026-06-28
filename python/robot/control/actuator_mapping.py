@@ -17,11 +17,11 @@ class ActuatorTarget:
 
 class ActuatorMapper:
     """
-    Mapper para:
+    Mapper para convertir el espacio articular q=[d1, theta2, theta3]
+    al espacio de actuadores [z, servo2, servo3].
 
-    J1: MG996R continuo + tornillo 2 mm/rev
-    J2: MG996R 180 deg, con limite cinematico actual [-30 deg, 30 deg]
-    J3: MG996R 180 deg, con limite cinematico actual [-45 deg, 45 deg]
+    Calibracion de home:
+        q=[0, 0, 0] -> z sin movimiento, servo2=90 deg, servo3=135 deg.
     """
 
     def __init__(
@@ -39,9 +39,9 @@ class ActuatorMapper:
         z_max_m: Optional[float] = None,
 
         # J2:
-        # q2 = 0 deg -> servo = 45 deg
+        # q2 = 0 deg -> servo2 = 90 deg.
         # q2 positivo aumenta el angulo enviado al servo.
-        q2_servo_at_zero_deg: float = 45.0,
+        q2_servo_at_zero_deg: float = 90.0,
         q2_ratio: float = 1.0,
         q2_direction: float = 1.0,
 
@@ -50,7 +50,8 @@ class ActuatorMapper:
         #   q3_logico = q3_servo_at_zero_deg + q3_ratio * theta3_deg
         # Luego, como el servo esta montado al reves, se invierte la senal:
         #   servo3 = 180 - q3_logico
-        q3_servo_at_zero_deg: float = 90.0,
+        # Para q3 = 0 deg, q3_logico = 45 deg y servo3 = 135 deg.
+        q3_servo_at_zero_deg: float = 45.0,
         q3_ratio: float = 1.0,
         q3_direction: float = 1.0,
 
