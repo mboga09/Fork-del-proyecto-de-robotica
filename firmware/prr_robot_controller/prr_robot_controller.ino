@@ -10,14 +10,17 @@
 static bool robotHomed = true;
 static const char* robotState = "IDLE";
 
-static int currentS2Deg = 45;
-static int currentS3Deg = 90;
+static const float HOME_S2_DEG = 0.0f;
+static const float HOME_S3_DEG = 180.0f;
+
+static int currentS2Deg = 0;
+static int currentS3Deg = 180;
 static int currentToolDeg = 0;
 
 static const unsigned long SERIAL_BAUD = 115200;
 
 // ---------------------------------------------------------
-// Envío JSON directo
+// Envio JSON directo
 // ---------------------------------------------------------
 
 void addCommonStatusFields(JsonDocument& doc) {
@@ -152,6 +155,19 @@ void handleMoveServosDirect(StaticJsonDocument<256>& doc) {
   directSendStatus("IDLE", "Manual servo command completed");
 }
 
+void handleHomeDirect() {
+  directSendAck("HOME", "HOME received");
+
+  robotState = "MOVING";
+  directSendStatus("MOVING", "Moving arm to HOME pose");
+
+  applyArmServoTargets(HOME_S2_DEG, HOME_S3_DEG);
+
+  robotHomed = true;
+  robotState = "IDLE";
+  directSendStatus("HOMED", "Robot referenced at HOME pose");
+}
+
 void handleZeroDirect() {
   directSendAck("ZERO", "ZERO received");
 
@@ -238,10 +254,7 @@ void processDirectJsonLine(String line) {
   }
 
   else if (strcmp(cmd, "HOME") == 0) {
-    robotHomed = true;
-    robotState = "IDLE";
-    directSendAck("HOME", "HOME received");
-    directSendStatus("HOMED", "Robot referenced");
+    handleHomeDirect();
   }
 
   else if (strcmp(cmd, "STOP") == 0) {
@@ -255,7 +268,7 @@ void processDirectJsonLine(String line) {
     stopZAxis();
     robotState = "ESTOPPED";
     directSendAck("ESTOP", "ESTOP received");
-    directSendStatus("ESTOPPED", "Emergency stop active");
+    directSendStatus("ESTOPPED", "E-stop active");
   }
 
   else if (strcmp(cmd, "MOVE_ACT") == 0) {
@@ -301,8 +314,8 @@ void setup() {
 
   robotHomed = true;
   robotState = "IDLE";
-  currentS2Deg = 45;
-  currentS3Deg = 90;
+  currentS2Deg = (int)HOME_S2_DEG;
+  currentS3Deg = (int)HOME_S3_DEG;
   currentToolDeg = 0;
 
   directSendStatus("HOMED", "DIRECT FIRMWARE READY");
