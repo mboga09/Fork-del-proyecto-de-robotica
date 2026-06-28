@@ -31,6 +31,7 @@ class JsonMotionSender:
         serial_controller: Any,
         ack_timeout_s: float = 5.0,
         motion_timeout_s: float = 30.0,
+        motion_timeout_margin_s: float = 10.0,
     ):
         if not hasattr(serial_controller, "send_command"):
             raise TypeError(
@@ -40,6 +41,7 @@ class JsonMotionSender:
         self.serial = serial_controller
         self.ack_timeout_s = ack_timeout_s
         self.motion_timeout_s = motion_timeout_s
+        self.motion_timeout_margin_s = motion_timeout_margin_s
 
     # ---------------------------------------------------------
     # Helpers de envío con espera
@@ -66,7 +68,8 @@ class JsonMotionSender:
         )
         if status is None:
             raise TimeoutError(
-                f"Timeout esperando estado terminal {list(terminal_statuses)} para {cmd}."
+                f"Timeout esperando estado terminal {list(terminal_statuses)} para {cmd}. "
+                f"timeout_s={timeout:.3f}"
             )
 
         status_name = status.get("status")
@@ -74,6 +77,9 @@ class JsonMotionSender:
             raise RuntimeError(f"{cmd} interrumpido por estado {status_name}.")
 
         return status
+
+    def _motion_timeout_for_z_time(self, z_time_s: float) -> float:
+        return max(self.motion_timeout_s, float(z_time_s) + self.motion_timeout_margin_s)
 
     # ---------------------------------------------------------
     # Movimiento de actuadores
@@ -87,8 +93,13 @@ class JsonMotionSender:
             s3_deg=target.servo3_deg,
         )
 
+        timeout_s = self._motion_timeout_for_z_time(target.z_duration_s)
         print("TX MOVE_ACT TARGET:", command, flush=True)
-        self._send_and_wait(command, terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"))
+        self._send_and_wait(
+            command,
+            terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"),
+            timeout_s=timeout_s,
+        )
 
     def move_act(
         self,
@@ -108,7 +119,12 @@ class JsonMotionSender:
             s2_deg=s2_deg,
             s3_deg=s3_deg,
         )
-        self._send_and_wait(command, terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"))
+        timeout_s = self._motion_timeout_for_z_time(z_time_s)
+        self._send_and_wait(
+            command,
+            terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"),
+            timeout_s=timeout_s,
+        )
 
     def move_z_jog(self, z_dir: int, z_time_s: float) -> None:
         """
@@ -134,8 +150,13 @@ class JsonMotionSender:
             FIELD_Z_TIME_S: round(z_time_s, 3),
         }
 
+        timeout_s = self._motion_timeout_for_z_time(z_time_s)
         print("TX Z_JOG:", command, flush=True)
-        self._send_and_wait(command, terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"))
+        self._send_and_wait(
+            command,
+            terminal_statuses=("IDLE", "STOPPED", "ESTOPPED"),
+            timeout_s=timeout_s,
+        )
 
     # ---------------------------------------------------------
     # Comandos generales
