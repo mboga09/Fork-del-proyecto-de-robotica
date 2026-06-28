@@ -27,16 +27,26 @@ class ActuatorMapper:
     Conversion inversa para teach points:
         theta2_deg = servo2_deg - 90
         theta3_deg = 235 - servo3_deg
+
+    Para el eje Z, el firmware mantiene pulsos simetricos alrededor del stop
+    para aplicar esfuerzo consistente. La diferencia por gravedad/friccion se
+    modela aqui con velocidades efectivas separadas para subir y bajar.
     """
 
     def __init__(
         self,
         z_pitch_m_per_rev: float = 0.002,
 
-        # Velocidad efectiva calibrada para el eje Z.
-        # Si un comando de 20 mm movia aproximadamente 2 mm,
-        # el tiempo enviado debe ser 10x mayor: 0.0120 -> 0.0012 m/s.
-        z_speed_m_per_s: float = 0.0012,
+        # Compatibilidad con versiones anteriores: si se pasa este valor,
+        # se usa para ambas direcciones. Para calibracion fina usar los dos
+        # parametros direccionales de abajo.
+        z_speed_m_per_s: Optional[float] = None,
+
+        # Velocidades efectivas calibradas para el eje Z.
+        # Estas NO cambian el pulso/torque del firmware; solo cambian el
+        # tiempo calculado en alto nivel para compensar gravedad y friccion.
+        z_up_speed_m_per_s: float = 0.0012,
+        z_down_speed_m_per_s: float = 0.0012,
 
         # El eje Z usa finales de carrera fisicos. Por defecto no se limita
         # por software en el mapper para permitir jog manual antes de HOME.
@@ -64,7 +74,20 @@ class ActuatorMapper:
         servo_max_deg: float = 180.0,
     ):
         self.z_pitch_m_per_rev = z_pitch_m_per_rev
-        self.z_speed_m_per_s = z_speed_m_per_s
+
+        if z_speed_m_per_s is not None:
+            z_up_speed_m_per_s = z_speed_m_per_s
+            z_down_speed_m_per_s = z_speed_m_per_s
+
+        self._validate_z_speed("z_up_speed_m_per_s", z_up_speed_m_per_s)
+        self._validate_z_speed("z_down_speed_m_per_s", z_down_speed_m_per_s)
+
+        self.z_up_speed_m_per_s = z_up_speed_m_per_s
+        self.z_down_speed_m_per_s = z_down_speed_m_per_s
+
+        # Alias legado para codigo que aun consulte una sola velocidad.
+        self.z_speed_m_per_s = z_up_speed_m_per_s
+
         self.z_min_m = z_min_m
         self.z_max_m = z_max_m
 
@@ -106,7 +129,8 @@ class ActuatorMapper:
         else:
             z_direction = 1 if z_delta_m > 0 else -1
             z_revolutions = abs(z_delta_m) / self.z_pitch_m_per_rev
-            z_duration_s = abs(z_delta_m) / self.z_speed_m_per_s
+            z_speed_m_per_s = self.z_speed_for_direction(z_direction)
+            z_duration_s = abs(z_delta_m) / z_speed_m_per_s
 
         servo2_deg = (
             self.q2_servo_at_zero_deg
@@ -131,6 +155,13 @@ class ActuatorMapper:
             servo3_deg=servo3_deg,
         )
 
+    def z_speed_for_direction(self, z_direction: int) -> float:
+        if z_direction > 0:
+            return self.z_up_speed_m_per_s
+        if z_direction < 0:
+            return self.z_down_speed_m_per_s
+        raise ValueError("z_direction debe ser -1 o 1 para calcular velocidad de Z.")
+
     def _validate_d1(self, d1_m: float):
         if self.z_min_m is not None and d1_m < self.z_min_m:
             raise ValueError(
@@ -148,3 +179,8 @@ class ActuatorMapper:
                 f"{name}={angle_deg:.2f} deg fuera de rango "
                 f"[{self.servo_min_deg}, {self.servo_max_deg}] deg."
             )
+
+    @staticmethod
+    def _validate_z_speed(name: str, speed_m_per_s: float):
+        if speed_m_per_s <= 0.0:
+            raise ValueError(f"{name} debe ser positivo. Valor recibido: {speed_m_per_s}")
