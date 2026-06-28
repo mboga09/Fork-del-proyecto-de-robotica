@@ -147,6 +147,16 @@ class SerialController:
         except SerialException as exc:
             self._emit_error(f"Serial write error: {exc}")
 
+    def mark_wait_cursor_at_end(self) -> None:
+        """
+        Move the wait cursor to the newest received message.
+
+        The UI still logs all messages, but the next wait_for_ack/status call
+        starts from messages received after this point.
+        """
+        with self._message_condition:
+            self._wait_cursor = len(self._message_history)
+
     def wait_for_message(
         self,
         predicate: MessagePredicate,
