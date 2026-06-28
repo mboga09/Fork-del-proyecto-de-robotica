@@ -29,6 +29,7 @@ static const int Q1_REVERSE_US = 500;
 static const int HOME_SENSOR_ACTIVE_LEVEL = HIGH;
 
 static const uint32_t INITIAL_HOME_TIMEOUT_MS = 45000;
+static const uint32_t ROUTE_HOME_HOLD_MS = 1000;
 
 static const float SERVO_MIN_DEG = 0.0f;
 static const float SERVO_MAX_DEG = 180.0f;
@@ -369,14 +370,36 @@ void handleRouteHome() {
   estopRequested = false;
   stopRequested = false;
   robotArmed = true;
-  motionBusy = false;
+  motionBusy = true;
 
   currentS2 = HOME_S2_DEG;
   currentS3 = HOME_S3_DEG;
   currentTool = TOOL_HOME_DEG;
   safeOutputs();
 
-  queueStatus("HOMED", "IDLE", "Route home armed; Z position unchanged");
+  queueStatus("MOVING", "MOVING", "Route home hold against mechanical stop");
+
+  uint32_t startMs = millis();
+  while (millis() - startMs < ROUTE_HOME_HOLD_MS) {
+    if (stopRequested || estopRequested) {
+      if (estopRequested) {
+        enterEStop();
+        return;
+      }
+      motionBusy = false;
+      safeOutputs();
+      queueStatus("STOPPED", "STOPPED", "Route home hold interrupted");
+      return;
+    }
+
+    writeServoAngle(CH_Q2, HOME_S2_DEG);
+    writeServoAngle(CH_Q3, HOME_S3_DEG);
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+
+  motionBusy = false;
+  publishPosition("ROUTE_HOME");
+  queueStatus("HOMED", "IDLE", "Route home held 1s for mechanical stop correction; Z position unchanged");
 }
 
 void motionTask(void* parameter) {
