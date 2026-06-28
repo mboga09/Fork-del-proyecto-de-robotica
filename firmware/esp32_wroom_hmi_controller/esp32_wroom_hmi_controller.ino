@@ -226,12 +226,10 @@ void executeInitialHome() {
   robotArmed = false;
   stopRequested = false;
 
-  currentS2 = HOME_S2_DEG;
-  currentS3 = HOME_S3_DEG;
-  currentTool = TOOL_HOME_DEG;
-  safeOutputs();
-
-  queueStatus("HOMING", "HOMING", "Initial Z homing started");
+  // Initial homing is Z-only. Do not rewrite S2, S3 or tool outputs here.
+  // Route Home is responsible for moving the arm to HOME after Z is calibrated.
+  stopQ1();
+  queueStatus("HOMING", "HOMING", "Initial Z-only homing started");
 
   uint32_t startMs = millis();
   if (!q1HomeSensorActive()) {
@@ -260,7 +258,7 @@ void executeInitialHome() {
   motionBusy = false;
   robotArmed = true;
   publishPosition("INITIAL_Z_HOME");
-  queueStatus("Z_HOMED", "IDLE", "Initial Z homing complete; d1 calibrated at limit switch");
+  queueStatus("Z_HOMED", "IDLE", "Initial Z homing complete; only d1 calibrated at limit switch");
 }
 
 void executeMove(const RobotCommand& command) {
