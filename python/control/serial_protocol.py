@@ -1,12 +1,12 @@
 """
-Serial JSON protocol definitions for the PRR robotic pipetting project.
+Serial JSON protocol definitions for the robotic pipetting project.
 
 Protocol:
     - One JSON object per line.
     - Python/HMI sends commands using the "cmd" field.
     - Firmware responds with messages using the "type" field.
 
-Protocol version: 0.2-diagnostic
+Protocol version: 0.3-hmi-controller
 """
 
 from enum import StrEnum
@@ -21,6 +21,7 @@ READ_TIMEOUT_S = 0.1
 class Command(StrEnum):
     PING = "PING"
     HOME = "HOME"
+    HOME_Z = "HOME_Z"
     STOP = "STOP"
     ESTOP = "ESTOP"
     MOVE_ACT = "MOVE_ACT"
@@ -39,6 +40,8 @@ class RobotStatus(StrEnum):
     IDLE = "IDLE"
     HOMING = "HOMING"
     HOMED = "HOMED"
+    Z_HOMED = "Z_HOMED"
+    Z_LIMIT = "Z_LIMIT"
     MOVING = "MOVING"
     STOPPED = "STOPPED"
     ESTOPPED = "ESTOPPED"
@@ -66,6 +69,10 @@ def make_ping_command() -> dict:
 
 def make_home_command() -> dict:
     return make_command(Command.HOME)
+
+
+def make_initial_home_command() -> dict:
+    return make_command(Command.HOME_Z)
 
 
 def make_stop_command() -> dict:
@@ -96,8 +103,6 @@ def make_move_act_command(z_dir: int, z_time_s: float, s2_deg: float, s3_deg: fl
     if z_time_s < 0.0:
         raise ValueError("z_time_s must be non-negative.")
 
-    # Diagnostic branch: s2_deg and s3_deg are logged as generated values.
-    # They are not hardware-safe calibration outputs yet.
     return {
         FIELD_COMMAND: Command.MOVE_ACT.value,
         FIELD_Z_DIR: z_dir,
