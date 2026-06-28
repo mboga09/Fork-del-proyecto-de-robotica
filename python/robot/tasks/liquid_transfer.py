@@ -86,7 +86,7 @@ class LiquidTransferTask:
             pose,
             q0=q_seed,
             mask=[1, 1, 1, 0, 0, 0],
-            joint_limits=True,
+            joint_limits=False,
         )
 
         if not sol.success:
