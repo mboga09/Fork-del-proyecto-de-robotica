@@ -1,25 +1,25 @@
 QMainWindow, QWidget {
-    background-color: #0b1f3a;
-    color: #e6f2ff;
+    background-color: #061a33;
+    color: #eaf6ff;
     font-family: Segoe UI, Arial, sans-serif;
     font-size: 10pt;
 }
 
 QLabel {
-    color: #e6f2ff;
+    color: #eaf6ff;
 }
 
 QLabel#titleLabel {
-    color: #ffffff;
+    color: #f7fbff;
     font-size: 22pt;
     font-weight: 700;
     padding: 10px 4px;
 }
 
 QGroupBox {
-    background-color: #12365f;
-    border: 1px solid #3f7fbc;
-    border-radius: 10px;
+    background-color: #0d2d57;
+    border: 1px solid #58a6ff;
+    border-radius: 12px;
     margin-top: 14px;
     padding: 12px;
     color: #ffffff;
@@ -30,50 +30,57 @@ QGroupBox::title {
     subcontrol-origin: margin;
     left: 12px;
     padding: 0 6px;
-    color: #b9dcff;
+    color: #a8d8ff;
 }
 
 QPushButton {
-    background-color: #1e88e5;
+    background-color: #1976d2;
     color: #ffffff;
-    border: 1px solid #64b5f6;
-    border-radius: 8px;
+    border: 1px solid #7bc4ff;
+    border-radius: 9px;
     padding: 8px 12px;
     font-weight: 600;
 }
 
 QPushButton:hover {
-    background-color: #42a5f5;
+    background-color: #2196f3;
+    border-color: #b3e5ff;
 }
 
 QPushButton:pressed {
-    background-color: #1565c0;
+    background-color: #0d47a1;
+}
+
+QPushButton:checked {
+    background-color: #00a6fb;
+    border-color: #caf0ff;
+    color: #02152b;
 }
 
 QPushButton:disabled {
-    background-color: #35516f;
-    color: #8ba6c3;
-    border-color: #466580;
+    background-color: #2a486c;
+    color: #8fb5d8;
+    border-color: #4e7499;
 }
 
 QRadioButton, QCheckBox {
-    color: #e6f2ff;
+    color: #eaf6ff;
     padding: 3px;
 }
 
 QComboBox, QDoubleSpinBox, QSpinBox, QLineEdit {
-    background-color: #eaf4ff;
-    color: #08213d;
-    border: 1px solid #64b5f6;
-    border-radius: 6px;
+    background-color: #edf8ff;
+    color: #061a33;
+    border: 1px solid #6ec6ff;
+    border-radius: 7px;
     padding: 4px;
 }
 
 QTextEdit, QPlainTextEdit {
-    background-color: #061426;
-    color: #d7ecff;
-    border: 1px solid #3f7fbc;
-    border-radius: 8px;
+    background-color: #031020;
+    color: #dff3ff;
+    border: 1px solid #4098d7;
+    border-radius: 9px;
     padding: 6px;
     font-family: Consolas, monospace;
 }
