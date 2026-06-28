@@ -12,9 +12,9 @@ class ScaraPRR(DHRobot):
         L3 = 0.150
 
         links = [
-            # Z is not software-limited in the kinematic model.
-            # Physical end stops and firmware homing protect the real travel.
-            PrismaticMDH(theta=0, a=0, alpha=0),
+            # Robotics Toolbox requires a finite qlim for prismatic joints.
+            # This is only a numerical placeholder; Z is not validated in Python.
+            PrismaticMDH(theta=0, a=0, alpha=0, qlim=[-10.0, 10.0]),
             RevoluteMDH(d=0, a=0, alpha=0, qlim=[-np.pi / 6, np.pi / 6]),
             RevoluteMDH(d=0, a=L2, alpha=0, qlim=[-np.pi / 4, np.pi / 4]),
         ]
