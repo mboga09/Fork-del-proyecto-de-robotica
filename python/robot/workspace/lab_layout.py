@@ -8,6 +8,9 @@ class LabLayout:
     def __init__(self, config_file: str = "workspace_config.yaml"):
         self.config = load_yaml_config(config_file)
 
+    def q_z_calibration(self):
+        return self._q_from_dict(self.config["q_z_calibration"])
+
     def q_home(self):
         return self._q_from_dict(self.config["q_home"])
 
