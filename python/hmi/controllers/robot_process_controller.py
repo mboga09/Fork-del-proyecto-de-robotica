@@ -1,5 +1,6 @@
 import json
 
+import numpy as np
 from PySide6.QtCore import QObject, Signal, QThread
 
 from control.serial_controller import SerialController
@@ -66,7 +67,7 @@ class RobotProcessController(QObject):
         self.executor = MotionExecutor(
             robot_model=self.robot,
             actuator_mapper=self.mapper,
-            initial_q=self.layout.q_home(),
+            initial_q=self.layout.q_z_calibration(),
             dry_run=True,
             command_sender=None,
             wait_after_send=True,
@@ -74,6 +75,7 @@ class RobotProcessController(QObject):
             status_callback=self.status_changed.emit,
         )
 
+        # is_homed ahora significa que Z fue referenciado con el homing inicial.
         self.is_homed = False
         self.is_running = False
 
@@ -112,14 +114,53 @@ class RobotProcessController(QObject):
         self.connection_changed.emit(False)
         self.status_changed.emit("Desconectado.")
 
+    def initial_home(self) -> None:
+        if not self._require_connection():
+            return
+        if self.is_running:
+            self.status_changed.emit("No se puede hacer homing inicial mientras corre una tarea.")
+            return
+
+        self.status_changed.emit("Enviando homing inicial de Z.")
+        try:
+            self.motion_sender.initial_home()
+            self.executor.set_current_q(self.layout.q_z_calibration())
+            self.is_homed = True
+            self.homed_changed.emit(True)
+            self.status_changed.emit("Homing inicial completo. current_q reiniciado a q_z_calibration.")
+        except Exception as exc:
+            self.is_homed = False
+            self.homed_changed.emit(False)
+            self.status_changed.emit(f"Error en homing inicial de Z: {exc}")
+
     def home(self) -> None:
         if not self._require_connection():
             return
-        self.status_changed.emit("Enviando HOME.")
+        if self.is_running:
+            self.status_changed.emit("No se puede ir a HOME mientras corre una tarea.")
+            return
+        if not self.is_homed:
+            self.status_changed.emit("Error: primero debe ejecutar Initial Z Homing.")
+            return
+
+        q_home = self.layout.q_home()
+        if np.allclose(self.executor.current_q, q_home, atol=1e-6):
+            self.status_changed.emit("El robot ya esta en Route Home.")
+            return
+
+        self.status_changed.emit("Moviendo a Route Home elevado.")
         try:
-            self.motion_sender.home()
+            segment = self.planner.move_joint(
+                q_start=self.executor.current_q,
+                q_goal=q_home,
+                steps=self.layout.joint_steps(),
+                name="route_home",
+            )
+            self.executor.execute_segment(segment)
+            self.executor.set_current_q(q_home)
+            self.status_changed.emit("Route Home alcanzado.")
         except Exception as exc:
-            self.status_changed.emit(f"Error enviando HOME: {exc}")
+            self.status_changed.emit(f"Error moviendo a Route Home: {exc}")
 
     def stop(self) -> None:
         if self.motion_sender is not None:
@@ -137,7 +178,9 @@ class RobotProcessController(QObject):
                 self.motion_sender.estop(wait=False)
             except Exception as exc:
                 self.status_changed.emit(f"Error enviando ESTOP: {exc}")
+        self.is_homed = False
         self.is_running = False
+        self.homed_changed.emit(False)
         self.running_changed.emit(False)
         self.status_changed.emit("ESTOP enviado.")
 
@@ -146,6 +189,9 @@ class RobotProcessController(QObject):
             return
         if self.is_running:
             self.status_changed.emit("No se puede hacer jog manual mientras corre una tarea.")
+            return
+        if not self.is_homed:
+            self.status_changed.emit("Error: primero debe ejecutar Initial Z Homing.")
             return
         if direction not in (-1, 1):
             self.status_changed.emit(f"Dirección Z inválida: {direction}")
@@ -157,10 +203,6 @@ class RobotProcessController(QObject):
             return
 
         try:
-            if not self.is_homed:
-                self.status_changed.emit("Preparando controlador para jog Z manual.")
-                self.motion_sender.home()
-
             z_speed_m_per_s = self.mapper.z_speed_for_direction(direction)
             z_time_s = distance_m / z_speed_m_per_s
             self.status_changed.emit(
@@ -205,7 +247,7 @@ class RobotProcessController(QObject):
         if not self._require_connection():
             return
         if not self.is_homed:
-            self.status_changed.emit("Error: debe hacer HOME antes de iniciar.")
+            self.status_changed.emit("Error: debe ejecutar Initial Z Homing antes de iniciar.")
             return
         if self.is_running:
             self.status_changed.emit("Ya hay una tarea corriendo.")
@@ -246,11 +288,15 @@ class RobotProcessController(QObject):
 
         status = message.get("status")
         homed = bool(message.get("homed", False))
-        if status == "HOMED":
+        if status == "Z_HOMED":
             self.is_homed = True
-            self.executor.set_current_q(self.layout.q_home())
+            self.executor.set_current_q(self.layout.q_z_calibration())
             self.homed_changed.emit(True)
-            self.status_changed.emit("Robot homed. current_q reiniciado a q_home.")
+            self.status_changed.emit("Z calibrado. current_q reiniciado a q_z_calibration.")
+            return
+        if status == "HOMED":
+            self.executor.set_current_q(self.layout.q_home())
+            self.status_changed.emit("Route Home confirmado por firmware.")
             return
         if homed:
             self.is_homed = True
