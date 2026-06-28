@@ -47,64 +47,68 @@ source:
     theta3_deg: -29.451
 
 wells:
-  # Rack 2x3 reubicado dentro del workspace actual.
-  # Pose numerica: A2 aprox. (0.2250, 0.1038), rotacion aprox. 129.7 deg.
+  # Rack 2x3 corrected with B1 as reference:
+  #   B1 = (0.168 m, 0.099203 m)
+  #   Row A is +0.039 m in Y from row B.
+  #   Columns 2 and 3 are +0.039 m and +0.078 m in X from column 1.
+  # Approach q values are analytic elbow-down IK seeds for the approach pose.
+  # Note: with current q3 limit +/-45 deg, only A3 is inside limits.
   A1:
     pose:
-      x: 0.249912
-      y: 0.073793
+      x: 0.168000
+      y: 0.138203
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -13.253
-      theta3_deg: 14.408
+      theta2_deg: -4.078
+      theta3_deg: 87.040
 
   A2:
     pose:
-      x: 0.225000
-      y: 0.103800
+      x: 0.207000
+      y: 0.138203
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -9.548
-      theta3_deg: 23.627
+      theta2_deg: -0.208
+      theta3_deg: 67.874
 
   A3:
     pose:
-      x: 0.200088
-      y: 0.133807
+      x: 0.246000
+      y: 0.138203
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -2.872
-      theta3_deg: 28.289
+      theta2_deg: 9.470
+      theta3_deg: 39.714
 
   B1:
     pose:
-      x: 0.279919
-      y: 0.098705
+      x: 0.168000
+      y: 0.099203
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: 11.063
-      theta3_deg: -28.278
+      theta2_deg: -18.871
+      theta3_deg: 98.865
 
   B2:
     pose:
-      x: 0.255007
-      y: 0.128712
+      x: 0.207000
+      y: 0.099203
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: 8.988
-      theta3_deg: -9.412
+      theta2_deg: -14.474
+      theta3_deg: 80.160
 
   B3:
     pose:
-      x: 0.230095
-      y: 0.158719
+      x: 0.246000
+      y: 0.099203
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: 13.308
-      theta3_deg: -2.420
+      theta2_deg: -5.889
+      theta3_deg: 55.702
