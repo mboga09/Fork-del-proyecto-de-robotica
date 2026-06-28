@@ -50,7 +50,8 @@ class RobotProcessController(QObject):
 
         self.mapper = ActuatorMapper(
             z_pitch_m_per_rev=0.002,
-            z_speed_m_per_s=0.0012,
+            z_up_speed_m_per_s=0.0012,
+            z_down_speed_m_per_s=0.0012,
             z_min_m=None,
             z_max_m=None,
         )
@@ -160,9 +161,12 @@ class RobotProcessController(QObject):
                 self.status_changed.emit("Preparando controlador para jog Z manual.")
                 self.motion_sender.home()
 
-            z_time_s = distance_m / self.mapper.z_speed_m_per_s
+            z_speed_m_per_s = self.mapper.z_speed_for_direction(direction)
+            z_time_s = distance_m / z_speed_m_per_s
             self.status_changed.emit(
-                f"Jog Z {'subir' if direction > 0 else 'bajar'}: {distance_mm:.1f} mm, t={z_time_s:.3f} s"
+                f"Jog Z {'subir' if direction > 0 else 'bajar'}: "
+                f"{distance_mm:.1f} mm, v={z_speed_m_per_s * 1000.0:.3f} mm/s, "
+                f"t={z_time_s:.3f} s"
             )
             self.motion_sender.move_z_jog(z_dir=direction, z_time_s=z_time_s)
             self.executor.current_q[0] += direction * distance_m
