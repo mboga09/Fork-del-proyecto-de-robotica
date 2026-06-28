@@ -144,21 +144,24 @@ class RobotProcessController(QObject):
             return
 
         q_home = self.layout.q_home()
-        if np.allclose(self.executor.current_q, q_home, atol=1e-6):
-            self.status_changed.emit("El robot ya esta en Route Home.")
-            return
 
         self.status_changed.emit("Moviendo a Route Home elevado.")
         try:
-            segment = self.planner.move_joint(
-                q_start=self.executor.current_q,
-                q_goal=q_home,
-                steps=self.layout.joint_steps(),
-                name="route_home",
-            )
-            self.executor.execute_segment(segment)
+            if not np.allclose(self.executor.current_q, q_home, atol=1e-6):
+                segment = self.planner.move_joint(
+                    q_start=self.executor.current_q,
+                    q_goal=q_home,
+                    steps=self.layout.joint_steps(),
+                    name="route_home",
+                )
+                self.executor.execute_segment(segment)
+            else:
+                self.status_changed.emit("El robot ya esta en Route Home; aplicando hold de correccion.")
+
+            self.status_changed.emit("Aplicando hold de Route Home en firmware.")
+            self.motion_sender.home()
             self.executor.set_current_q(q_home)
-            self.status_changed.emit("Route Home alcanzado.")
+            self.status_changed.emit("Route Home alcanzado y sostenido.")
         except Exception as exc:
             self.status_changed.emit(f"Error moviendo a Route Home: {exc}")
 
