@@ -123,6 +123,9 @@ class MotionExecutor:
 
         Como el robot solo controla posición y la orientación es constante,
         usamos mask=[1, 1, 1, 0, 0, 0].
+
+        joint_limits=False evita que Robotics Toolbox evalúe el eje Z con
+        qlim infinito. Después se validan solo las articulaciones rotacionales.
         """
 
         q_list = []
@@ -133,7 +136,7 @@ class MotionExecutor:
                 T,
                 q0=q_seed,
                 mask=[1, 1, 1, 0, 0, 0],
-                joint_limits=True,
+                joint_limits=False,
             )
 
             if not sol.success:
@@ -212,16 +215,26 @@ class MotionExecutor:
     # ---------------------------------------------------------
 
     def _validate_joint_limits(self, q) -> None:
+        """
+        Valida solo las articulaciones rotacionales q2/q3.
+
+        El eje Z d1 usa finales de carrera físicos y no debe entrar en la
+        validación de joint limits del modelo porque su qlim es infinito.
+        """
         q = np.asarray(q, dtype=float)
 
         q_min = self.robot.qlim[0]
         q_max = self.robot.qlim[1]
 
         tolerance = 1e-6
+        rot_slice = slice(1, 3)
 
-        if np.any(q < q_min - tolerance) or np.any(q > q_max + tolerance):
+        if (
+            np.any(q[rot_slice] < q_min[rot_slice] - tolerance)
+            or np.any(q[rot_slice] > q_max[rot_slice] + tolerance)
+        ):
             raise ValueError(
-                "Configuración fuera de límites:\n"
+                "Configuración rotacional fuera de límites:\n"
                 f"q     = {q}\n"
                 f"q_min = {q_min}\n"
                 f"q_max = {q_max}"
