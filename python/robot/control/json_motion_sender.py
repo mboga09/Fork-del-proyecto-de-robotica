@@ -8,6 +8,7 @@ from control.serial_protocol import (
     FIELD_Z_DIR,
     FIELD_Z_TIME_S,
     make_home_command,
+    make_initial_home_command,
     make_stop_command,
     make_estop_command,
     make_move_act_command,
@@ -131,8 +132,7 @@ class JsonMotionSender:
         Envía un jog puro de Z sin mandar s2_deg/s3_deg.
 
         El firmware conserva los servos rotativos en su último valor interno
-        cuando esos campos no vienen en el JSON. Esto permite probar Z antes de
-        HOME sin forzar q2/q3 a una pose asumida por Python.
+        cuando esos campos no vienen en el JSON.
         """
 
         z_dir = int(z_dir)
@@ -161,6 +161,13 @@ class JsonMotionSender:
     # ---------------------------------------------------------
     # Comandos generales
     # ---------------------------------------------------------
+
+    def initial_home(self) -> None:
+        self._send_and_wait(
+            make_initial_home_command(),
+            terminal_statuses=("Z_HOMED",),
+            timeout_s=60.0,
+        )
 
     def home(self) -> None:
         self._send_and_wait(
