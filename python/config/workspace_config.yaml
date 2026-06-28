@@ -49,39 +49,39 @@ source:
 wells:
   # Rack 2x3 corrected with B1 as reference:
   #   B1 = (0.168 m, 0.099203 m)
-  #   Row A is +0.039 m in Y from row B.
-  #   Columns 2 and 3 are +0.039 m and +0.078 m in X from column 1.
-  # Approach q values are analytic elbow-down IK seeds for the approach pose.
-  # Note: with current q3 limit +/-45 deg, only A3 is inside limits.
+  #   Row A is +0.039 m in X from row B.
+  #   Columns 2 and 3 are -0.039 m and -0.078 m in Y from column 1.
+  # Approach q values are analytic IK seeds using the positive-q3 branch.
+  # Note: with current q3 limit +/-45 deg, these rack points remain outside limits.
   A1:
     pose:
-      x: 0.168000
-      y: 0.138203
+      x: 0.207000
+      y: 0.099203
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -4.078
-      theta3_deg: 87.040
+      theta2_deg: -14.474
+      theta3_deg: 80.160
 
   A2:
     pose:
       x: 0.207000
-      y: 0.138203
+      y: 0.060203
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -0.208
-      theta3_deg: 67.874
+      theta2_deg: -27.846
+      theta3_deg: 88.124
 
   A3:
     pose:
-      x: 0.246000
-      y: 0.138203
+      x: 0.207000
+      y: 0.021203
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: 9.470
-      theta3_deg: 39.714
+      theta2_deg: -40.235
+      theta3_deg: 92.167
 
   B1:
     pose:
@@ -95,20 +95,20 @@ wells:
 
   B2:
     pose:
-      x: 0.207000
-      y: 0.099203
+      x: 0.168000
+      y: 0.060203
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -14.474
-      theta3_deg: 80.160
+      theta2_deg: -33.781
+      theta3_deg: 106.993
 
   B3:
     pose:
-      x: 0.246000
-      y: 0.099203
+      x: 0.168000
+      y: 0.021203
       z: 0.022
     approach_q:
       d1: 0.0815
-      theta2_deg: -5.889
-      theta3_deg: 55.702
+      theta2_deg: -48.443
+      theta3_deg: 111.273
