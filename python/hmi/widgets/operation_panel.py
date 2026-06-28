@@ -4,7 +4,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QRadioButton,
     QPushButton,
-    QDoubleSpinBox,
     QLabel,
 )
 
@@ -17,15 +16,9 @@ class OperationPanel(QGroupBox):
 
         self.all_wells_radio = QRadioButton("Transfer to all wells")
         self.selected_wells_radio = QRadioButton("Transfer to selected wells")
-        self.route_radio = QRadioButton("Route")
+        self.fixed_volume_label = QLabel("Tool volume: fixed 1.0 ml per trip")
 
         self.all_wells_radio.setChecked(True)
-
-        self.volume_spin = QDoubleSpinBox()
-        self.volume_spin.setRange(0.1, 3.0)
-        self.volume_spin.setSingleStep(0.1)
-        self.volume_spin.setValue(1.0)
-        self.volume_spin.setSuffix(" ml")
 
         self.start_button = QPushButton("Start Process")
 
@@ -37,11 +30,7 @@ class OperationPanel(QGroupBox):
 
         layout.addWidget(self.all_wells_radio)
         layout.addWidget(self.selected_wells_radio)
-        layout.addWidget(self.route_radio)
-
-        layout.addWidget(QLabel("Volume:"))
-        layout.addWidget(self.volume_spin)
-
+        layout.addWidget(self.fixed_volume_label)
         layout.addWidget(self.start_button)
 
         self.setLayout(layout)
@@ -52,10 +41,7 @@ class OperationPanel(QGroupBox):
     def get_selected_mode(self) -> str:
         if self.all_wells_radio.isChecked():
             return "all"
-        if self.selected_wells_radio.isChecked():
-            return "selected"
-        return "route"
-
+        return "selected"
 
     def get_volume_ml(self) -> float:
-        return self.volume_spin.value()
+        return 1.0
