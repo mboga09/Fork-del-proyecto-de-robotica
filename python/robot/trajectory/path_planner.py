@@ -61,8 +61,7 @@ class PathPlanner:
         Parameters
         ----------
         robot_model:
-            Modelo del robot. Por ahora se almacena para futura validación,
-            pero este planner no llama directamente a fkine/ikine.
+            Modelo del robot.
 
         safe_pose:
             Pose cartesiana segura general.
@@ -71,8 +70,8 @@ class PathPlanner:
             Pose cartesiana de toma de líquido.
 
         approach_height:
-            Altura de aproximación en metros.
-            0.025 equivale a 25 mm.
+            Altura de aproximación en metros. Se conserva para compatibilidad,
+            pero las transferencias calibradas usan approach_q taught points.
         """
 
         if approach_height <= 0:
@@ -96,6 +95,9 @@ class PathPlanner:
         """
 
         return target * SE3(0, 0, self.approach_height)
+
+    def _pose_from_q(self, q) -> SE3:
+        return self.robot.fkine(q)
 
     @staticmethod
     def _validate_steps(steps: int) -> None:
@@ -220,11 +222,11 @@ class PathPlanner:
 
             Safe
               ↓ MoveJ
-            Fuente approach
+            Fuente approach taught point
               ↓ MoveL
             Fuente
               ↑ MoveL
-            Fuente approach
+            Fuente approach taught point
 
         La acción de aspirar debe ejecutarse después del segmento
         "source_down", desde la capa de tarea.
@@ -233,7 +235,7 @@ class PathPlanner:
         if source_pose is None:
             source_pose = self.source_pose
 
-        source_approach = self._approach_pose(source_pose)
+        source_approach = self._pose_from_q(q_source_approach)
 
         return [
             self.move_joint(
@@ -275,17 +277,17 @@ class PathPlanner:
 
             Safe
               ↓ MoveJ
-            Hoyo approach
+            Hoyo approach taught point
               ↓ MoveL
             Hoyo
               ↑ MoveL
-            Hoyo approach
+            Hoyo approach taught point
 
         La acción de dispensar debe ejecutarse después del segmento
         "well_down", desde la capa de tarea.
         """
 
-        well_approach = self._approach_pose(well_pose)
+        well_approach = self._pose_from_q(q_well_approach)
 
         return [
             self.move_joint(
