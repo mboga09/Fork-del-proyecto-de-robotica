@@ -72,6 +72,7 @@ class ActuatorMapper:
 
         servo_min_deg: float = 0.0,
         servo_max_deg: float = 180.0,
+        servo_limit_tolerance_deg: float = 1e-3,
     ):
         self.z_pitch_m_per_rev = z_pitch_m_per_rev
 
@@ -101,6 +102,7 @@ class ActuatorMapper:
 
         self.servo_min_deg = servo_min_deg
         self.servo_max_deg = servo_max_deg
+        self.servo_limit_tolerance_deg = servo_limit_tolerance_deg
 
     def joint_to_actuator(self, q_target, q_current) -> ActuatorTarget:
         q_target = np.asarray(q_target, dtype=float)
@@ -143,8 +145,8 @@ class ActuatorMapper:
         )
         servo3_deg = self.servo_max_deg - servo3_logical_deg
 
-        self._validate_servo("servo2", servo2_deg)
-        self._validate_servo("servo3", servo3_deg)
+        servo2_deg = self._clamp_servo_near_limit("servo2", servo2_deg)
+        servo3_deg = self._clamp_servo_near_limit("servo3", servo3_deg)
 
         return ActuatorTarget(
             z_delta_m=z_delta_m,
@@ -172,6 +174,28 @@ class ActuatorMapper:
             raise ValueError(
                 f"d1={d1_m:.4f} m esta por encima del maximo {self.z_max_m:.4f} m."
             )
+
+    def _clamp_servo_near_limit(self, name: str, angle_deg: float) -> float:
+        """
+        Corrige deriva numerica cerca de los limites fisicos.
+
+        Ejemplo: HOME puede producir servo2=-0.0000000001 deg por redondeo
+        aunque mecanicamente el valor deseado es exactamente 0 deg. En ese
+        caso se clampa a 0. Si el valor realmente excede el rango fuera de la
+        tolerancia, se mantiene el error de seguridad.
+        """
+
+        angle_deg = float(angle_deg)
+        tol = float(self.servo_limit_tolerance_deg)
+
+        if self.servo_min_deg - tol <= angle_deg < self.servo_min_deg:
+            return float(self.servo_min_deg)
+
+        if self.servo_max_deg < angle_deg <= self.servo_max_deg + tol:
+            return float(self.servo_max_deg)
+
+        self._validate_servo(name, angle_deg)
+        return angle_deg
 
     def _validate_servo(self, name: str, angle_deg: float):
         if angle_deg < self.servo_min_deg or angle_deg > self.servo_max_deg:
