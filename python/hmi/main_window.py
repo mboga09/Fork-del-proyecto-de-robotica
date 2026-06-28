@@ -2,8 +2,10 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QWidget,
     QVBoxLayout,
-    QHBoxLayout,
+    QGridLayout,
     QLabel,
+    QScrollArea,
+    QSizePolicy,
 )
 
 from tools.config_loader import load_yaml_config
@@ -24,7 +26,8 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Robotic Pipetting HMI")
-        self.setMinimumSize(1100, 700)
+        self.setMinimumSize(900, 620)
+        self.resize(1180, 760)
 
         serial_config_file = load_yaml_config("serial_config.yaml")
         serial_config = serial_config_file.get("serial", {})
@@ -49,29 +52,65 @@ class MainWindow(QMainWindow):
         self._connect_signals()
 
     def _build_ui(self) -> None:
-        central_widget = QWidget()
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setObjectName("mainScrollArea")
+
+        content_widget = QWidget()
+        content_widget.setObjectName("mainContentWidget")
+        content_widget.setMinimumWidth(760)
+
         main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(10, 8, 10, 10)
+        main_layout.setSpacing(8)
 
         title = QLabel("Robotic Pipetting HMI")
         title.setObjectName("titleLabel")
 
-        top_layout = QHBoxLayout()
-        top_layout.addWidget(self.connection_panel)
-        top_layout.addWidget(self.homing_panel)
-        top_layout.addWidget(self.manual_z_panel)
+        control_grid = QGridLayout()
+        control_grid.setHorizontalSpacing(8)
+        control_grid.setVerticalSpacing(8)
+        control_grid.setColumnStretch(0, 1)
+        control_grid.setColumnStretch(1, 1)
+        control_grid.setColumnStretch(2, 1)
 
-        middle_layout = QHBoxLayout()
-        middle_layout.addWidget(self.operation_panel)
-        middle_layout.addWidget(self.well_selector)
+        self._configure_panel_sizes()
+
+        control_grid.addWidget(self.connection_panel, 0, 0)
+        control_grid.addWidget(self.homing_panel, 0, 1)
+        control_grid.addWidget(self.manual_z_panel, 0, 2)
+        control_grid.addWidget(self.operation_panel, 1, 0)
+        control_grid.addWidget(self.well_selector, 1, 1, 1, 2)
 
         main_layout.addWidget(title)
-        main_layout.addLayout(top_layout)
+        main_layout.addLayout(control_grid)
         main_layout.addWidget(self.raw_serial_panel)
-        main_layout.addLayout(middle_layout)
         main_layout.addWidget(self.status_panel)
+        main_layout.setStretch(0, 0)
+        main_layout.setStretch(1, 0)
+        main_layout.setStretch(2, 0)
+        main_layout.setStretch(3, 1)
 
-        central_widget.setLayout(main_layout)
-        self.setCentralWidget(central_widget)
+        content_widget.setLayout(main_layout)
+        scroll_area.setWidget(content_widget)
+        self.setCentralWidget(scroll_area)
+
+    def _configure_panel_sizes(self) -> None:
+        panels = (
+            self.connection_panel,
+            self.homing_panel,
+            self.manual_z_panel,
+            self.operation_panel,
+            self.well_selector,
+            self.raw_serial_panel,
+        )
+
+        for panel in panels:
+            panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+
+        self.status_panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.status_panel.setMinimumHeight(150)
+        self.status_panel.setMaximumHeight(260)
 
     def _connect_signals(self) -> None:
         self.connection_panel.connect_requested.connect(self._on_connect_requested)
