@@ -20,11 +20,12 @@ class ActuatorMapper:
     Mapper para convertir el espacio articular q=[d1, theta2, theta3]
     al espacio de actuadores [z, servo2, servo3].
 
-    Calibracion de home extrema izquierda:
-        q=[0, -30 deg, 55 deg] -> z sin movimiento, servo2=0 deg, servo3=180 deg.
+    Calibracion actual:
+        q2 = 0 deg -> servo2 = 90 deg.
+        q3 = 55 deg -> servo3 = 180 deg.
 
     Conversion inversa para teach points:
-        theta2_deg = servo2_deg - 30
+        theta2_deg = servo2_deg - 90
         theta3_deg = 235 - servo3_deg
     """
 
@@ -33,9 +34,9 @@ class ActuatorMapper:
         z_pitch_m_per_rev: float = 0.002,
 
         # Velocidad efectiva calibrada para el eje Z.
-        # Valor anterior: 0.0060 m/s.
-        # Se duplica para reducir a la mitad los tiempos enviados.
-        z_speed_m_per_s: float = 0.0120,
+        # Si un comando de 20 mm movia aproximadamente 2 mm,
+        # el tiempo enviado debe ser 10x mayor: 0.0120 -> 0.0012 m/s.
+        z_speed_m_per_s: float = 0.0012,
 
         # El eje Z usa finales de carrera fisicos. Por defecto no se limita
         # por software en el mapper para permitir jog manual antes de HOME.
@@ -43,10 +44,9 @@ class ActuatorMapper:
         z_max_m: Optional[float] = None,
 
         # J2:
-        # q2 = -30 deg -> servo2 = 0 deg.
-        # q2 =   0 deg -> servo2 = 30 deg.
+        # q2 = 0 deg -> servo2 = 90 deg.
         # q2 positivo aumenta el angulo enviado al servo.
-        q2_servo_at_zero_deg: float = 30.0,
+        q2_servo_at_zero_deg: float = 90.0,
         q2_ratio: float = 1.0,
         q2_direction: float = 1.0,
 
