@@ -37,8 +37,11 @@ static const float MAX_Z_TIME_S = 120.0f;
 static const float ROTARY_STEP_DEG = 0.5f;
 static const uint32_t MOTION_PERIOD_MS = 25;
 static const float TOOL_STEP_DEG = 1.0f;
-static const uint32_t TOOL_PERIOD_MS = 15;
-static const uint32_t TOOL_HOLD_MS = 1000;
+// Tool calibration: 1 degree every 100 ms, equivalent to the validated
+// Arduino test for both aspirate (0 -> 180) and dispense (180 -> 0).
+static const uint32_t TOOL_PERIOD_MS = 100;
+// The visual test pauses are not part of the calibrated tool action.
+static const uint32_t TOOL_HOLD_MS = 0;
 
 static const float TOOL_HOME_DEG = 0.0f;
 static const float TOOL_ASPIRATE_DEG = 180.0f;
