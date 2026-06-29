@@ -38,14 +38,14 @@ static const float ROTARY_STEP_DEG = 0.5f;
 static const uint32_t MOTION_PERIOD_MS = 25;
 
 // Tool calibration for the new continuous-rotation servo:
-//   Aspirate: servo.write(110) for 2800 ms, then stop at 90.
-//   Dispense: servo.write(70) for 2800 ms, then stop at 90.
+//   Aspirate: servo.write(70) for 2800 ms, then stop at 90.
+//   Dispense: servo.write(110) for 2800 ms, then stop at 90.
 // The 3000 ms stop pauses from the calibration sketch are not part of the
 // autonomous action; the firmware stops the servo immediately after each run.
 static const float TOOL_STOP_DEG = 90.0f;
 static const float TOOL_HOME_DEG = TOOL_STOP_DEG;
-static const float TOOL_ASPIRATE_DEG = 110.0f;
-static const float TOOL_DISPENSE_DEG = 70.0f;
+static const float TOOL_ASPIRATE_DEG = 70.0f;
+static const float TOOL_DISPENSE_DEG = 110.0f;
 static const uint32_t TOOL_RUN_MS = 2800;
 static const uint32_t TOOL_STOP_SETTLE_MS = 100;
 
