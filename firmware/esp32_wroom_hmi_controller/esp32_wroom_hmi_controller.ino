@@ -36,16 +36,18 @@ static const float SERVO_MAX_DEG = 180.0f;
 static const float MAX_Z_TIME_S = 120.0f;
 static const float ROTARY_STEP_DEG = 0.5f;
 static const uint32_t MOTION_PERIOD_MS = 25;
-static const float TOOL_STEP_DEG = 1.0f;
-// Tool calibration: 1 degree every 100 ms, equivalent to the validated
-// Arduino test for both aspirate (0 -> 180) and dispense (180 -> 0).
-static const uint32_t TOOL_PERIOD_MS = 100;
-// The visual test pauses are not part of the calibrated tool action.
-static const uint32_t TOOL_HOLD_MS = 0;
 
-static const float TOOL_HOME_DEG = 0.0f;
-static const float TOOL_ASPIRATE_DEG = 180.0f;
-static const float TOOL_DISPENSE_DEG = 0.0f;
+// Tool calibration for the new continuous-rotation servo:
+//   Aspirate: servo.write(110) for 2800 ms, then stop at 90.
+//   Dispense: servo.write(70) for 2800 ms, then stop at 90.
+// The 3000 ms stop pauses from the calibration sketch are not part of the
+// autonomous action; the firmware stops the servo immediately after each run.
+static const float TOOL_STOP_DEG = 90.0f;
+static const float TOOL_HOME_DEG = TOOL_STOP_DEG;
+static const float TOOL_ASPIRATE_DEG = 110.0f;
+static const float TOOL_DISPENSE_DEG = 70.0f;
+static const uint32_t TOOL_RUN_MS = 2800;
+static const uint32_t TOOL_STOP_SETTLE_MS = 100;
 
 static const float HOME_S2_DEG = 0.0f;
 static const float HOME_S3_DEG = 180.0f;
@@ -110,6 +112,11 @@ void setQ1(int direction) {
   } else {
     stopQ1();
   }
+}
+
+void stopTool() {
+  currentTool = TOOL_STOP_DEG;
+  writeServoAngle(CH_TOOL, currentTool);
 }
 
 void queueRaw(const char* json) {
@@ -179,7 +186,7 @@ void safeOutputs() {
   stopQ1();
   writeServoAngle(CH_Q2, currentS2);
   writeServoAngle(CH_Q3, currentS3);
-  writeServoAngle(CH_TOOL, currentTool);
+  stopTool();
 }
 
 void enterEStop() {
@@ -233,6 +240,7 @@ void executeInitialHome() {
   // Initial homing is Z-only. Do not rewrite S2, S3 or tool outputs here.
   // Route Home is responsible for moving the arm to HOME after Z is calibrated.
   stopQ1();
+  stopTool();
   queueStatus("HOMING", "HOMING", "Initial Z-only homing started");
 
   uint32_t startMs = millis();
@@ -243,6 +251,7 @@ void executeInitialHome() {
   while (!q1HomeSensorActive()) {
     if (stopRequested || estopRequested) {
       stopQ1();
+      stopTool();
       motionBusy = false;
       queueStatus(estopRequested ? "ESTOPPED" : "STOPPED", estopRequested ? "ESTOPPED" : "STOPPED", "Initial Z homing interrupted");
       return;
@@ -250,6 +259,7 @@ void executeInitialHome() {
 
     if (millis() - startMs >= INITIAL_HOME_TIMEOUT_MS) {
       stopQ1();
+      stopTool();
       motionBusy = false;
       queueStatus("ERROR", "IDLE", "Initial Z homing timeout before limit switch");
       return;
@@ -259,6 +269,7 @@ void executeInitialHome() {
   }
 
   stopQ1();
+  stopTool();
   motionBusy = false;
   robotArmed = true;
   publishPosition("INITIAL_Z_HOME");
@@ -337,36 +348,58 @@ void executeMove(const RobotCommand& command) {
   queueStatus("IDLE", "IDLE", "Motion completed");
 }
 
-void executeTool(const char* name, float targetDeg) {
+void executeToolStop(const char* name) {
   if (!robotArmed) {
     queueStatus("ERROR", "IDLE", "Tool rejected: Initial Z Homing required");
     return;
   }
-  if (!validateAngle(targetDeg)) {
-    queueStatus("ERROR", "IDLE", "Tool rejected: angle out of range");
-    return;
-  }
+
   motionBusy = true;
   stopRequested = false;
   queueStatus("MOVING", "MOVING", name);
 
-  TickType_t lastWake = xTaskGetTickCount();
-  while (true) {
+  stopTool();
+  vTaskDelay(pdMS_TO_TICKS(TOOL_STOP_SETTLE_MS));
+
+  motionBusy = false;
+  publishPosition(name);
+  queueStatus("IDLE", "IDLE", "Tool stopped");
+}
+
+void executeTool(const char* name, float runDeg) {
+  if (!robotArmed) {
+    queueStatus("ERROR", "IDLE", "Tool rejected: Initial Z Homing required");
+    return;
+  }
+  if (!validateAngle(runDeg)) {
+    queueStatus("ERROR", "IDLE", "Tool rejected: speed command out of range");
+    return;
+  }
+
+  motionBusy = true;
+  stopRequested = false;
+  queueStatus("MOVING", "MOVING", name);
+
+  currentTool = runDeg;
+  writeServoAngle(CH_TOOL, currentTool);
+
+  uint32_t startMs = millis();
+  while (millis() - startMs < TOOL_RUN_MS) {
     if (stopRequested || estopRequested) {
+      stopTool();
       motionBusy = false;
       queueStatus(estopRequested ? "ESTOPPED" : "STOPPED", estopRequested ? "ESTOPPED" : "STOPPED", "Tool interrupted");
       return;
     }
-    currentTool = stepToward(currentTool, targetDeg, TOOL_STEP_DEG);
-    writeServoAngle(CH_TOOL, currentTool);
-    if (fabs(currentTool - targetDeg) < 0.01f) break;
-    vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(TOOL_PERIOD_MS));
+
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 
-  vTaskDelay(pdMS_TO_TICKS(TOOL_HOLD_MS));
+  stopTool();
+  vTaskDelay(pdMS_TO_TICKS(TOOL_STOP_SETTLE_MS));
   motionBusy = false;
   publishPosition(name);
-  queueStatus("IDLE", "IDLE", "Tool completed");
+  queueStatus("IDLE", "IDLE", "Tool continuous-rotation action completed");
 }
 
 void handleRouteHome() {
@@ -377,7 +410,7 @@ void handleRouteHome() {
 
   currentS2 = HOME_S2_DEG;
   currentS3 = HOME_S3_DEG;
-  currentTool = TOOL_HOME_DEG;
+  stopTool();
   safeOutputs();
 
   queueStatus("MOVING", "MOVING", "Route home hold against mechanical stop");
@@ -397,6 +430,7 @@ void handleRouteHome() {
 
     writeServoAngle(CH_Q2, HOME_S2_DEG);
     writeServoAngle(CH_Q3, HOME_S3_DEG);
+    stopTool();
     vTaskDelay(pdMS_TO_TICKS(20));
   }
 
@@ -422,10 +456,11 @@ void motionTask(void* parameter) {
       } else if (strcmp(command.cmd, "TOOL_DISPENSE") == 0) {
         executeTool("TOOL_DISPENSE", TOOL_DISPENSE_DEG);
       } else if (strcmp(command.cmd, "TOOL_HOME") == 0) {
-        executeTool("TOOL_HOME", TOOL_HOME_DEG);
+        executeToolStop("TOOL_HOME");
       } else if (strcmp(command.cmd, "STOP") == 0) {
         stopRequested = true;
         stopQ1();
+        stopTool();
         motionBusy = false;
         queueStatus("STOPPED", "STOPPED", "STOP received");
       } else if (strcmp(command.cmd, "ESTOP") == 0) {
