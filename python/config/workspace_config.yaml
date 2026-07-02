@@ -39,33 +39,33 @@ source:
 wells:
   A1:
     pose:
-      x: -0.015024
-      y: -0.024517
+      x: -0.015369
+      y: -0.021153
       z: -0.0215
     approach_q:
       d1: 0.0360
-      theta2_deg: -37.000
-      theta3_deg: 191.000
+      theta2_deg: -41.000
+      theta3_deg: 190.000
 
   A2:
     pose:
-      x: -0.001431
-      y: 0.007722
+      x: 0.000000
+      y: 0.000000
       z: -0.0215
     approach_q:
       d1: 0.0360
-      theta2_deg: 12.000
-      theta3_deg: 177.000
+      theta2_deg: 0.000
+      theta3_deg: 180.000
 
   A3:
     pose:
-      x: -0.041865
-      y: 0.039039
+      x: -0.030789
+      y: 0.035419
       z: -0.0215
     approach_q:
       d1: 0.0360
-      theta2_deg: 58.000
-      theta3_deg: 158.000
+      theta2_deg: 50.000
+      theta3_deg: 162.000
 
   B1:
     pose:
