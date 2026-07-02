@@ -39,13 +39,13 @@ source:
 wells:
   A1:
     pose:
-      x: -0.007412
-      y: -0.010784
+      x: -0.015024
+      y: -0.024517
       z: -0.0215
     approach_q:
       d1: 0.0360
       theta2_deg: -37.000
-      theta3_deg: 185.000
+      theta3_deg: 191.000
 
   A2:
     pose:
