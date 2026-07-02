@@ -49,23 +49,23 @@ wells:
 
   A2:
     pose:
-      x: -0.002456
-      y: 0.015507
+      x: -0.001431
+      y: 0.007722
       z: -0.0215
     approach_q:
       d1: 0.0360
       theta2_deg: 12.000
-      theta3_deg: 174.000
+      theta3_deg: 177.000
 
   A3:
     pose:
-      x: -0.044868
-      y: 0.043328
+      x: -0.041865
+      y: 0.039039
       z: -0.0215
     approach_q:
       d1: 0.0360
       theta2_deg: 58.000
-      theta3_deg: 156.000
+      theta3_deg: 158.000
 
   B1:
     pose:
