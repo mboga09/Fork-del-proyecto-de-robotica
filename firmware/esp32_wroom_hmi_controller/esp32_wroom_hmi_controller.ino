@@ -306,15 +306,17 @@ void executeMove(const RobotCommand& command) {
 
   queueStatus("MOVING", "MOVING", command.name);
 
-  // Safety rule for workspace clearance: every MOVE_ACT aligns J2/J3 first
-  // with Z stopped. Only after the planar arm reaches the target does Q1 move.
-  stopQ1();
+  uint32_t startMs = millis();
+  uint32_t zDurationMs = (uint32_t)(command.zTimeS * 1000.0f);
+  bool zActive = effectiveZDir != 0 && zDurationMs > 0;
+  setQ1(zActive ? effectiveZDir : 0);
+
   TickType_t lastWake = xTaskGetTickCount();
   while (true) {
     if (stopRequested || estopRequested) {
       stopQ1();
       motionBusy = false;
-      queueStatus(estopRequested ? "ESTOPPED" : "STOPPED", estopRequested ? "ESTOPPED" : "STOPPED", "Motion interrupted while aligning J2/J3");
+      queueStatus(estopRequested ? "ESTOPPED" : "STOPPED", estopRequested ? "ESTOPPED" : "STOPPED", "Motion interrupted");
       return;
     }
 
@@ -323,28 +325,7 @@ void executeMove(const RobotCommand& command) {
     writeServoAngle(CH_Q2, currentS2);
     writeServoAngle(CH_Q3, currentS3);
 
-    bool rotaryDone = fabs(currentS2 - command.s2Deg) < 0.01f && fabs(currentS3 - command.s3Deg) < 0.01f;
-    if (rotaryDone) break;
-    vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(MOTION_PERIOD_MS));
-  }
-
-  uint32_t startMs = millis();
-  uint32_t zDurationMs = (uint32_t)(command.zTimeS * 1000.0f);
-  bool zActive = effectiveZDir != 0 && zDurationMs > 0;
-  setQ1(zActive ? effectiveZDir : 0);
-
-  while (zActive) {
-    if (stopRequested || estopRequested) {
-      stopQ1();
-      motionBusy = false;
-      queueStatus(estopRequested ? "ESTOPPED" : "STOPPED", estopRequested ? "ESTOPPED" : "STOPPED", "Motion interrupted during Z move");
-      return;
-    }
-
-    writeServoAngle(CH_Q2, currentS2);
-    writeServoAngle(CH_Q3, currentS3);
-
-    if (effectiveZDir < 0 && q1HomeSensorActive()) {
+    if (zActive && effectiveZDir < 0 && q1HomeSensorActive()) {
       zActive = false;
       effectiveZDir = 0;
       stopQ1();
@@ -356,9 +337,9 @@ void executeMove(const RobotCommand& command) {
       stopQ1();
     }
 
-    if (zActive) {
-      vTaskDelay(pdMS_TO_TICKS(10));
-    }
+    bool done = fabs(currentS2 - command.s2Deg) < 0.01f && fabs(currentS3 - command.s3Deg) < 0.01f && !zActive;
+    if (done) break;
+    vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(MOTION_PERIOD_MS));
   }
 
   stopQ1();
